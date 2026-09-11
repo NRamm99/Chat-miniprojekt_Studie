@@ -1,3 +1,7 @@
+package chat.server;
+
+import chat.domain.Message;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -16,8 +20,8 @@ public class ClientHandler implements Runnable {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
             String line;
             while ((line = in.readLine()) != null) {
-                // Log received message with client IP:port
-                System.out.println(clientAddr + " -> " + line);
+                Message message = Message.fromProtocol(line);
+                System.out.println(clientAddr + " -> " + message.toProtocolString());
             }
         } catch (IOException e) {
             System.err.println("Connection error with " + clientAddr + ": " + e.getMessage());

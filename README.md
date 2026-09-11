@@ -1,26 +1,26 @@
 Chat TCP-server og konsolklient
 
-Dette projekt indeholder en simpel ChatServer og ChatClient implementering (issue #4).
+Dette projekt indeholder en simpel ChatServer og ChatClient implementering (issue #4), organiseret i små packages efter ansvar.
 
 Kompilering
 
 Fra projektroden (kræver JDK):
 
-javac -d out src\*.java
+javac -d out $(Get-ChildItem -Recurse -Filter *.java | ForEach-Object { $_.FullName })
 
 Kørsel
 
 Start serveren i én terminal:
 
-java -cp out ChatServer
+java -cp out chat.server.ChatServer
 
 Start op til tre klienter i hver deres terminal:
 
-java -cp out ChatClient
+java -cp out chat.client.ChatClient
 
 Brug
 
-Skriv en besked i klientterminals konsol og tryk Enter. Beskeden sendes i formatet TEXT||<tekst> og serveren logger hver modtaget linje sammen med klientens IP:port.
+Skriv en besked i klientterminals konsol og tryk Enter. Beskeden sendes i formatet TEXT||<tekst>, og serveren logger hver modtaget linje sammen med klientens IP:port.
 
 Manuel kontrol (som i issue #4)
 
