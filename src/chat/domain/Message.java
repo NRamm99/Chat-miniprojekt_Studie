@@ -1,8 +1,14 @@
 package chat.domain;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 public final class Message {
     public static final String TYPE_TEXT = "TEXT";
     public static final String TYPE_LOGIN = "LOGIN";
+    public static final String TYPE_ERROR = "ERROR";
+    public static final DateTimeFormatter SERVER_TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final String type;
     private final String text;
@@ -18,6 +24,16 @@ public final class Message {
 
     public static Message fromLogin(String username) {
         return new Message(TYPE_LOGIN, username);
+    }
+
+    public static String formatServerMessage(String type, String sender, String text) {
+        String messageType = type == null ? TYPE_ERROR : type;
+        String messageSender = sender == null ? "server" : sender;
+        return LocalDateTime.now().format(SERVER_TIMESTAMP_FORMAT)
+                + "|" + messageType
+                + "|" + messageSender
+                + "||"
+                + (text == null ? "" : text);
     }
 
     public static Message fromProtocol(String rawMessage) {
