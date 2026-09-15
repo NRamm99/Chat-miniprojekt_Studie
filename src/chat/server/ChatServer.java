@@ -3,11 +3,14 @@ package chat.server;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ChatServer {
     public static final int DEFAULT_PORT = 5001;
+    public static final ConcurrentMap<String, ClientHandler> REGISTERED_USERS = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         int port = DEFAULT_PORT;
@@ -18,7 +21,7 @@ public class ChatServer {
             while (true) {
                 Socket client = serverSocket.accept();
                 System.out.println("Accepted connection from " + client.getRemoteSocketAddress());
-                pool.execute(new ClientHandler(client));
+                pool.execute(new ClientHandler(client, REGISTERED_USERS));
             }
         } catch (IOException e) {
             System.err.println("Server error: " + e.getMessage());
