@@ -17,10 +17,19 @@ public class ChatClient {
              PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
              BufferedReader console = new BufferedReader(new InputStreamReader(System.in))) {
 
+            System.out.print("Choose a username: ");
+            String username = console.readLine();
+            while (username == null || username.trim().isEmpty()) {
+                System.out.print("Choose a username: ");
+                username = console.readLine();
+            }
+
+            out.println(Message.fromLogin(username.trim()).toProtocolString());
             System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
+
             String line;
             while ((line = console.readLine()) != null) {
-               out.println(Message.fromText(line).toProtocolString());
+                out.println(Message.fromText(line).toProtocolString());
             }
 
         } catch (IOException e) {

@@ -9,6 +9,7 @@ import java.net.Socket;
 
 public class ClientHandler implements Runnable {
     private final Socket socket;
+    private String username;
 
     public ClientHandler(Socket socket) {
         this.socket = socket;
@@ -21,7 +22,15 @@ public class ClientHandler implements Runnable {
             String line;
             while ((line = in.readLine()) != null) {
                 Message message = Message.fromProtocol(line);
-                System.out.println(clientAddr + " -> " + message.toProtocolString());
+
+                if (Message.TYPE_LOGIN.equals(message.getType())) {
+                    username = message.getText();
+                    System.out.println(clientAddr + " registered username: " + username);
+                    continue;
+                }
+
+                String sender = username == null ? "unknown" : username;
+                System.out.println(clientAddr + " (" + sender + ") -> " + message.getText());
             }
         } catch (IOException e) {
             System.err.println("Connection error with " + clientAddr + ": " + e.getMessage());
