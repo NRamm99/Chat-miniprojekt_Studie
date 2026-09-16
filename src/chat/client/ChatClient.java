@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ChatClient {
     public static final String HOST = "localhost";
     public static final int PORT = 5001;
+    public static final String DEFAULT_ROOM = "lobby";
 
     public static void main(String[] args) {
         try (Socket socket = new Socket(HOST, PORT);
@@ -56,11 +57,12 @@ public class ChatClient {
                }
             }
 
-            System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
+            System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Current room: " + DEFAULT_ROOM + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
+
 
             String line;
             while ((line = console.readLine()) != null) {
-               out.println(Message.fromText(line).toProtocolString());
+               out.println(Message.fromText(DEFAULT_ROOM, line).toProtocolString());
             }
 
         } catch (IOException e) {
@@ -69,8 +71,8 @@ public class ChatClient {
     }
 
     private static void receiveServerMessages(BufferedReader in,
-                                            AtomicReference<CountDownLatch> loginLatchRef,
-                                            AtomicBoolean loginAccepted) {
+                                             AtomicReference<CountDownLatch> loginLatchRef,
+                                             AtomicBoolean loginAccepted) {
         try {
             String serverLine;
             while ((serverLine = in.readLine()) != null) {
@@ -79,10 +81,14 @@ public class ChatClient {
                    String timestamp = parts[0];
                    String type = parts[1];
                    String sender = parts[2];
+<<<<<<< HEAD
+                   String room = parts.length > 3 ? parts[3] : "";
                    String text = parts.length == 5 ? parts[4] : "";
+                   String formatted = timestamp + "|" + type + "|" + sender + "|" + room + "|" + text;
 
                    if (Message.TYPE_ERROR.equals(type)) {
-                       System.out.println(timestamp + "|" + type + "|" + sender + "||" + text);
+                       System.out.println(formatted);
+
                        CountDownLatch latch = loginLatchRef.get();
                        if (latch != null) {
                            latch.countDown();
@@ -92,17 +98,19 @@ public class ChatClient {
                    }
 
                    if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
-                       System.out.println(timestamp + "|" + type + "|" + sender + "||" + text);
+                       System.out.println(formatted);
+
                        loginAccepted.set(true);
                        CountDownLatch latch = loginLatchRef.get();
                        if (latch != null) {
                            latch.countDown();
                        }
                        continue;
+                   if (Message.TYPE_TEXT.equals(type)) {
+                       System.out.println(formatted);
+                       continue;
                    }
-               }
 
-               System.out.println(serverLine);
             }
         } catch (IOException e) {
             System.err.println("Server message error: " + e.getMessage());

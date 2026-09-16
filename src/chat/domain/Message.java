@@ -4,54 +4,76 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public final class Message {
-    public static final String TYPE_TEXT = "TEXT";
-    public static final String TYPE_LOGIN = "LOGIN";
-    public static final String TYPE_ERROR = "ERROR";
-    public static final DateTimeFormatter SERVER_TIMESTAMP_FORMAT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
     private final String type;
     private final String text;
+    private final String room;
 
     private Message(String type, String text) {
+       this(type, text, "");
+    }
+
+    private Message(String type, String text, String room) {
         this.type = type == null ? TYPE_TEXT : type;
         this.text = text == null ? "" : text;
+        this.room = room == null ? "" : room;
     }
 
     public static Message fromText(String text) {
-        return new Message(TYPE_TEXT, text);
+       return fromText("", text);
     }
+
+    public static Message fromText(String room, String text) {
+       return new Message(TYPE_TEXT, text, room);
+    }
+
 
     public static Message fromLogin(String username) {
         return new Message(TYPE_LOGIN, username);
     }
 
     public static String formatServerMessage(String type, String sender, String text) {
-        String messageType = type == null ? TYPE_ERROR : type;
-        String messageSender = sender == null ? "server" : sender;
-        return LocalDateTime.now().format(SERVER_TIMESTAMP_FORMAT)
-                + "|" + messageType
-                + "|" + messageSender
-                + "||"
-                + (text == null ? "" : text);
+       return formatServerMessage(type, sender, "", text);
     }
+
+    public static String formatServerMessage(String type, String sender, String room, String text) {
+       String messageType = type == null ? TYPE_ERROR : type;
+       String messageSender = sender == null ? "server" : sender;
+       String roomValue = room == null ? "" : room;
+       String payload = (text == null ? "" : text);
+       String roomPart = roomValue.isBlank() ? "||" : "|" + roomValue + "|";
+       return LocalDateTime.now().format(SERVER_TIMESTAMP_FORMAT)
+               + "|" + messageType
+               + "|" + messageSender
+               + roomPart
+               + payload;
+    }
+
 
     public static Message fromProtocol(String rawMessage) {
-        if (rawMessage == null) {
-            throw new IllegalArgumentException("Message cannot be null");
-        }
+       if (rawMessage == null) {
+           throw new IllegalArgumentException("Message cannot be null");
+       }
 
-        String[] parts = rawMessage.split("\\|", 3);
-        if (parts.length >= 2 && TYPE_LOGIN.equals(parts[0])) {
-            String username = parts.length == 3 ? parts[2] : "";
-            return new Message(TYPE_LOGIN, username);
-        }
+       if (rawMessage.startsWith(TYPE_LOGIN + "||")) {
+           String username = rawMessage.substring((TYPE_LOGIN + "||").length());
+           return new Message(TYPE_LOGIN, username);
+       }
 
-        String messageText = rawMessage.startsWith(TYPE_TEXT + "||")
-                ? rawMessage.substring((TYPE_TEXT + "||").length())
-                : rawMessage;
-        return new Message(TYPE_TEXT, messageText);
+       if (rawMessage.startsWith(TYPE_TEXT + "||")) {
+           String text = rawMessage.substring((TYPE_TEXT + "||").length());
+           return new Message(TYPE_TEXT, text, "");
+       }
+
+       String[] parts = rawMessage.split("\\|", 3);
+       if (parts.length >= 2 && TYPE_TEXT.equals(parts[0])) {
+           String room = parts.length >= 2 ? parts[1] : "";
+           String messageText = parts.length == 3 ? parts[2] : "";
+           return new Message(TYPE_TEXT, messageText, room);
+       }
+
+       return new Message(TYPE_TEXT, rawMessage, "");
     }
+
 
     public String getType() {
         return type;
@@ -61,7 +83,14 @@ public final class Message {
         return text;
     }
 
+    public String getRoom() {
+        return room;
+    }
+
     public String toProtocolString() {
-        return type + "||" + text;
+       if (TYPE_TEXT.equals(type) && room != null && !room.isBlank()) {
+           return type + "|" + room + "|" + text;
+       }
+       return type + "||" + text;
     }
 }
