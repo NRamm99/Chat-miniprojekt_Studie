@@ -24,22 +24,32 @@ Når en klient opretter forbindelse, bliver brugeren bedt om at vælge et bruger
 
 Serveren registrerer navnet atomisk i et delt, trådsikkert register. Hvis navnet allerede er optaget, afvises forsøget uden at ændre den eksisterende registrering. Serveren sender derefter en fejlmeddelelse på serverformatet og klienten lader brugeren vælge et nyt navn på samme forbindelse.
 
-Efter et accepteret login kan klienten skrive tekst i konsollen. Hver linje sendes i formatet TEXT||<tekst>. Serveren logger hver modtaget besked sammen med klientens IP:port og den registrerede brugernavn.
+Serveren starter med to faste rum: `lobby` og `room67`. Alle nye klienter bliver placeret i `lobby`, når deres brugernavn accepteres. Et klientforbindelses rumtilhørsforhold håndteres af serveren trådsikkert.
+
+Efter et accepteret login kan klienten skrive tekst i konsollen. Hver linje sendes i formatet TEXT|<aktuelt rum>|<tekst>. Serveren logger hver modtaget besked sammen med klientens IP:port, det registrerede brugernavn og rummets navn.
 
 Beskedformater
 
 - LOGIN||<brugernavn> – klienten sender et ønsket brugernavn til serveren.
 - TIMESTAMP|LOGIN|server||Brugernavnet er accepteret: <brugernavn> – serveren bekræfter et gyldigt login.
 - TIMESTAMP|ERROR|server||Brugernavnet er optaget – serveren afviser et allerede optaget brugernavn.
-- TEXT||<tekst> – klienten sender en chatbesked til serveren.
-- TIMESTAMP|TEXT|<brugernavn>||<tekst> – serverens format for videreformidlede beskeder til alle registrerede klienter, inklusive afsenderen.
+- TEXT|<rum>|<tekst> – klienten sender en chatbesked til serveren med det rum, den er registreret i.
+- TIMESTAMP|TEXT|<brugernavn>|<rum>|<tekst> – serverens format for videreformidlede beskeder til alle registrerede klienter i samme rum, inklusive afsenderen.
+- TIMESTAMP|ERROR|server||Beskedens TARGET svarer ikke til dit registrerede rum – serveren afviser et meddelelsesforsøg, hvis klienten sender et andet TARGET end sit eget rum, og broadcaster ikke videre.
+
+Manuel kontrol (issue #15)
+
+1. Start serveren. Kontroller, at den opretter de to faste rum `lobby` og `room67`.
+2. Start tre klienter med forskellige brugernavne. Kontroller, at alle tre automatisk placeres i `lobby`.
+3. Send "Hej fra Alice" fra Alice, derefter "Hej fra Bob" og "Hej fra Charlie". Kontroller, at alle tre klienter modtager beskederne med `lobby` som TARGET, og at hver besked vises som `TIMESTAMP|TEXT|<brugernavn>|lobby|<tekst>`.
+4. Test et ugyldigt TARGET ved at forsøge at sende med et forkert rum i teksten. Kontroller, at serveren svarer med `TIMESTAMP|ERROR|server||Beskedens TARGET svarer ikke til dit registrerede rum` uden at broadcastede beskeden.
 
 Manuel kontrol (issue #11)
 
 1. Start serveren. Start tre klienter med forskellige brugernavne, fx "Alice", "Bob" og "Charlie".
 2. Send "Hej fra Alice" fra Alice, derefter "Hej fra Bob" og "Hej fra Charlie". Kontroller, at hver klient modtager hver besked præcis én gang, og at hver meddelelse viser korrekt afsender og tekst.
 3. Lad én klient være stille uden konsolinput i et par sekunder. Kontroller, at den stadig modtager beskeder fra de andre klienter.
-4. Kontroller, at hver leveret besked vises med `split("\\|", 5)`-parse og formatteres som `TIMESTAMP|TEXT|<brugernavn>||<tekst>`.
+4. Kontroller, at hver leveret besked vises med `split("\\|", 5)`-parse og formatteres som `TIMESTAMP|TEXT|<brugernavn>|<rum>|<tekst>`.
 
 Manuel kontrol (issue #9 og #10)
 

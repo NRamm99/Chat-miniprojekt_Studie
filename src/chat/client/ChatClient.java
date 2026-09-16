@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ChatClient {
     public static final String HOST = "localhost";
     public static final int PORT = 5001;
+    public static final String DEFAULT_ROOM = "lobby";
 
     public static void main(String[] args) {
         try (Socket socket = new Socket(HOST, PORT);
@@ -28,39 +29,39 @@ public class ChatClient {
             receiverThread.start();
 
             while (true) {
-                System.out.print("Choose a username: ");
-                String username = console.readLine();
-                if (username == null) {
-                    return;
-                }
+               System.out.print("Choose a username: ");
+               String username = console.readLine();
+               if (username == null) {
+                   return;
+               }
 
-                username = username.trim();
-                if (username.isEmpty()) {
-                    continue;
-                }
+               username = username.trim();
+               if (username.isEmpty()) {
+                   continue;
+               }
 
-                loginAccepted.set(false);
-                CountDownLatch nextLoginLatch = new CountDownLatch(1);
-                loginLatchRef.set(nextLoginLatch);
+               loginAccepted.set(false);
+               CountDownLatch nextLoginLatch = new CountDownLatch(1);
+               loginLatchRef.set(nextLoginLatch);
 
-                out.println(Message.fromLogin(username).toProtocolString());
-                try {
-                    nextLoginLatch.await();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
+               out.println(Message.fromLogin(username).toProtocolString());
+               try {
+                   nextLoginLatch.await();
+               } catch (InterruptedException e) {
+                   Thread.currentThread().interrupt();
+                   return;
+               }
 
-                if (loginAccepted.get()) {
-                    break;
-                }
+               if (loginAccepted.get()) {
+                   break;
+               }
             }
 
-            System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
+            System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Current room: " + DEFAULT_ROOM + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
 
             String line;
             while ((line = console.readLine()) != null) {
-                out.println(Message.fromText(line).toProtocolString());
+               out.println(Message.fromText(DEFAULT_ROOM, line).toProtocolString());
             }
 
         } catch (IOException e) {
@@ -74,41 +75,42 @@ public class ChatClient {
         try {
             String serverLine;
             while ((serverLine = in.readLine()) != null) {
-                String[] parts = serverLine.split("\\|", 5);
-                if (parts.length >= 4) {
-                    String timestamp = parts[0];
-                    String type = parts[1];
-                    String sender = parts[2];
-                    String text = parts.length == 5 ? parts[4] : "";
-                    String formatted = timestamp + "|" + type + "|" + sender + "||" + text;
+               String[] parts = serverLine.split("\\|", 5);
+               if (parts.length >= 4) {
+                   String timestamp = parts[0];
+                   String type = parts[1];
+                   String sender = parts[2];
+                   String room = parts.length > 3 ? parts[3] : "";
+                   String text = parts.length == 5 ? parts[4] : "";
+                   String formatted = timestamp + "|" + type + "|" + sender + "|" + room + "|" + text;
 
-                    if (Message.TYPE_ERROR.equals(type)) {
-                        System.out.println(formatted);
-                        CountDownLatch latch = loginLatchRef.get();
-                        if (latch != null) {
-                            latch.countDown();
-                        }
-                        loginAccepted.set(false);
-                        continue;
-                    }
+                   if (Message.TYPE_ERROR.equals(type)) {
+                       System.out.println(formatted);
+                       CountDownLatch latch = loginLatchRef.get();
+                       if (latch != null) {
+                           latch.countDown();
+                       }
+                       loginAccepted.set(false);
+                       continue;
+                   }
 
-                    if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
-                        System.out.println(formatted);
-                        loginAccepted.set(true);
-                        CountDownLatch latch = loginLatchRef.get();
-                        if (latch != null) {
-                            latch.countDown();
-                        }
-                        continue;
-                    }
+                   if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
+                       System.out.println(formatted);
+                       loginAccepted.set(true);
+                       CountDownLatch latch = loginLatchRef.get();
+                       if (latch != null) {
+                           latch.countDown();
+                       }
+                       continue;
+                   }
 
-                    if (Message.TYPE_TEXT.equals(type)) {
-                        System.out.println(formatted);
-                        continue;
-                    }
-                }
+                   if (Message.TYPE_TEXT.equals(type)) {
+                       System.out.println(formatted);
+                       continue;
+                   }
+               }
 
-                System.out.println(serverLine);
+               System.out.println(serverLine);
             }
         } catch (IOException e) {
             System.err.println("Server message error: " + e.getMessage());
