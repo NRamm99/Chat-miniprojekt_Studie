@@ -39,13 +39,13 @@ public class ClientHandler implements Runnable {
                    continue;
                 }
 
-                if (Message.TYPE_JOIN_ROOM.equals(message.getType())) {
-                   handleJoinRoom(message.getText());
+                if (username == null) {
+                   sendServerMessage(Message.TYPE_ERROR, "server", null, "Du skal vælge et brugernavn først");
                    continue;
                 }
 
-                if (username == null) {
-                   sendServerMessage(Message.TYPE_ERROR, "server", null, "Du skal vælge et brugernavn først");
+                if (Message.TYPE_JOIN_ROOM.equals(message.getType())) {
+                   handleJoinRoom(message.getText());
                    continue;
                 }
 
@@ -144,10 +144,6 @@ public class ClientHandler implements Runnable {
     }
 
     private void handleJoinRoom(String targetRoom) {
-        if (username == null) {
-            return;
-        }
-
         if (targetRoom == null || targetRoom.isBlank()) {
             sendServerMessage(Message.TYPE_ERROR, "server", null, "Rumnavnet kan ikke være tomt");
             return;
