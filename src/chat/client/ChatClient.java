@@ -59,6 +59,10 @@ public class ChatClient {
             }
 
             System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Current room: " + DEFAULT_ROOM + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
+            System.out.println("\n--- Available Commands ---");
+            System.out.println("/join <room>  - Switch to a different chat room (e.g., /join room67)");
+            System.out.println("/help         - Show this help message");
+            System.out.println("--- End Commands ---\n");
 
 
             String line;
@@ -70,7 +74,12 @@ public class ChatClient {
                    } else {
                        System.out.println("Usage: /join <room>");
                    }
-               } else {
+               } else if (line.equals("/help")) {
+                   System.out.println("\n--- Available Commands ---");
+                   System.out.println("/join <room>  - Switch to a different chat room (e.g., /join room67)");
+                   System.out.println("/help         - Show this help message");
+                   System.out.println("--- End Commands ---\n");
+               } else if (!line.trim().isEmpty()) {
                    out.println(Message.fromText(currentRoomRef.get(), line).toProtocolString());
                }
             }
