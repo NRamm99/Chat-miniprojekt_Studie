@@ -4,6 +4,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public final class Message {
+    public static final String TYPE_TEXT = "TEXT";
+    public static final String TYPE_LOGIN = "LOGIN";
+    public static final String TYPE_ERROR = "ERROR";
+    public static final String TYPE_JOIN_ROOM = "JOIN_ROOM";
+    public static final DateTimeFormatter SERVER_TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     private final String type;
     private final String text;
     private final String room;
@@ -28,7 +35,11 @@ public final class Message {
 
 
     public static Message fromLogin(String username) {
-        return new Message(TYPE_LOGIN, username);
+       return new Message(TYPE_LOGIN, username);
+    }
+
+    public static Message fromJoinRoom(String room) {
+       return new Message(TYPE_JOIN_ROOM, room);
     }
 
     public static String formatServerMessage(String type, String sender, String text) {
@@ -64,6 +75,12 @@ public final class Message {
            return new Message(TYPE_TEXT, text, "");
        }
 
+       if (rawMessage.startsWith(TYPE_JOIN_ROOM + "|")) {
+           String[] parts = rawMessage.split("\\|", 2);
+           String room = parts.length >= 2 ? parts[1] : "";
+           return new Message(TYPE_JOIN_ROOM, room);
+       }
+
        String[] parts = rawMessage.split("\\|", 3);
        if (parts.length >= 2 && TYPE_TEXT.equals(parts[0])) {
            String room = parts.length >= 2 ? parts[1] : "";
@@ -90,6 +107,9 @@ public final class Message {
     public String toProtocolString() {
        if (TYPE_TEXT.equals(type) && room != null && !room.isBlank()) {
            return type + "|" + room + "|" + text;
+       }
+       if (TYPE_JOIN_ROOM.equals(type)) {
+           return type + "|" + text + "|";
        }
        return type + "||" + text;
     }

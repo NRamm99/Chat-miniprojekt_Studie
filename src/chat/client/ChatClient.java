@@ -24,8 +24,9 @@ public class ChatClient {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             AtomicBoolean loginAccepted = new AtomicBoolean(false);
             AtomicReference<CountDownLatch> loginLatchRef = new AtomicReference<>(new CountDownLatch(1));
+            AtomicReference<String> currentRoomRef = new AtomicReference<>(DEFAULT_ROOM);
 
-            Thread receiverThread = new Thread(() -> receiveServerMessages(in, loginLatchRef, loginAccepted), "chat-client-receiver");
+            Thread receiverThread = new Thread(() -> receiveServerMessages(in, loginLatchRef, loginAccepted, currentRoomRef), "chat-client-receiver");
             receiverThread.start();
 
             while (true) {
@@ -62,7 +63,16 @@ public class ChatClient {
 
             String line;
             while ((line = console.readLine()) != null) {
-               out.println(Message.fromText(DEFAULT_ROOM, line).toProtocolString());
+               if (line.startsWith("/join ")) {
+                   String targetRoom = line.substring(6).trim();
+                   if (!targetRoom.isEmpty()) {
+                       out.println(Message.fromJoinRoom(targetRoom).toProtocolString());
+                   } else {
+                       System.out.println("Usage: /join <room>");
+                   }
+               } else {
+                   out.println(Message.fromText(currentRoomRef.get(), line).toProtocolString());
+               }
             }
 
         } catch (IOException e) {
@@ -72,7 +82,8 @@ public class ChatClient {
 
     private static void receiveServerMessages(BufferedReader in,
                                              AtomicReference<CountDownLatch> loginLatchRef,
-                                             AtomicBoolean loginAccepted) {
+                                             AtomicBoolean loginAccepted,
+                                             AtomicReference<String> currentRoomRef) {
         try {
             String serverLine;
             while ((serverLine = in.readLine()) != null) {
@@ -81,14 +92,12 @@ public class ChatClient {
                    String timestamp = parts[0];
                    String type = parts[1];
                    String sender = parts[2];
-<<<<<<< HEAD
                    String room = parts.length > 3 ? parts[3] : "";
                    String text = parts.length == 5 ? parts[4] : "";
                    String formatted = timestamp + "|" + type + "|" + sender + "|" + room + "|" + text;
 
                    if (Message.TYPE_ERROR.equals(type)) {
                        System.out.println(formatted);
-
                        CountDownLatch latch = loginLatchRef.get();
                        if (latch != null) {
                            latch.countDown();
@@ -99,18 +108,27 @@ public class ChatClient {
 
                    if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
                        System.out.println(formatted);
-
                        loginAccepted.set(true);
                        CountDownLatch latch = loginLatchRef.get();
                        if (latch != null) {
                            latch.countDown();
                        }
                        continue;
+                   }
+
+                   if (Message.TYPE_JOIN_ROOM.equals(type) && "server".equalsIgnoreCase(sender)) {
+                       System.out.println(formatted);
+                       currentRoomRef.set(room);
+                       continue;
+                   }
+
                    if (Message.TYPE_TEXT.equals(type)) {
                        System.out.println(formatted);
                        continue;
                    }
+               }
 
+               System.out.println(serverLine);
             }
         } catch (IOException e) {
             System.err.println("Server message error: " + e.getMessage());

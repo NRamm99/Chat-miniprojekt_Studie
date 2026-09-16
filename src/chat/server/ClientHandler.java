@@ -35,14 +35,18 @@ public class ClientHandler implements Runnable {
                 Message message = Message.fromProtocol(line);
 
                 if (Message.TYPE_LOGIN.equals(message.getType())) {
-                    handleLogin(message.getText());
-                    continue;
+                   handleLogin(message.getText());
+                   continue;
+                }
+
+                if (Message.TYPE_JOIN_ROOM.equals(message.getType())) {
+                   handleJoinRoom(message.getText());
+                   continue;
                 }
 
                 if (username == null) {
-                    sendServerMessage(Message.TYPE_ERROR, "server", null, "Du skal vælge et brugernavn først");
-
-                    continue;
+                   sendServerMessage(Message.TYPE_ERROR, "server", null, "Du skal vælge et brugernavn først");
+                   continue;
                 }
 
                 if (!Message.TYPE_TEXT.equals(message.getType())) {
@@ -139,6 +143,35 @@ public class ClientHandler implements Runnable {
        }
     }
 
+    private void handleJoinRoom(String targetRoom) {
+        if (username == null) {
+            return;
+        }
+
+        if (targetRoom == null || targetRoom.isBlank()) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Rumnavnet kan ikke være tomt");
+            return;
+        }
+
+        Set<ClientHandler> targetRoomMembers = ChatServer.ROOMS.get(targetRoom);
+        if (targetRoomMembers == null) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Rummet findes ikke");
+            return;
+        }
+
+        if (room != null && room.equals(targetRoom)) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Du er allerede i det rum");
+            return;
+        }
+
+        leaveRoom();
+        room = targetRoom;
+        targetRoomMembers.add(this);
+
+        System.out.println(socket.getRemoteSocketAddress() + " (" + username + ") switched to room: " + room);
+        sendServerMessage(Message.TYPE_JOIN_ROOM, "server", room, "Du er nu i rum " + room);
+    }
+
     private void broadcastMessage(String roomToSend, String text) {
        if (username == null || text == null || roomToSend == null) {
            return;
@@ -164,3 +197,4 @@ public class ClientHandler implements Runnable {
            out.println(Message.formatServerMessage(type, sender, room, text));
        }
     }
+}
