@@ -28,6 +28,8 @@ Serveren starter med to faste rum: `lobby` og `room67`. Alle nye klienter bliver
 
 Efter et accepteret login kan klienten skrive tekst i konsollen. Hver linje sendes i formatet TEXT|<aktuelt rum>|<tekst>. Serveren logger hver modtaget besked sammen med klientens IP:port, det registrerede brugernavn og rummets navn.
 
+Brugeren kan skifte til et andet rum ved at skrive `/join <rum>` i konsollen. Kommandoen sender `JOIN_ROOM|<rum>|` til serveren, som validerer at rummet findes, fjerner brugeren fra det nuværende rum, og føjer brugeren til det nye rum.
+
 Beskedformater
 
 - LOGIN||<brugernavn> – klienten sender et ønsket brugernavn til serveren.
@@ -36,6 +38,18 @@ Beskedformater
 - TEXT|<rum>|<tekst> – klienten sender en chatbesked til serveren med det rum, den er registreret i.
 - TIMESTAMP|TEXT|<brugernavn>|<rum>|<tekst> – serverens format for videreformidlede beskeder til alle registrerede klienter i samme rum, inklusive afsenderen.
 - TIMESTAMP|ERROR|server||Beskedens TARGET svarer ikke til dit registrerede rum – serveren afviser et meddelelsesforsøg, hvis klienten sender et andet TARGET end sit eget rum, og broadcaster ikke videre.
+- JOIN_ROOM|<rum>| – klienten sender en forespørgsel om at skifte til et eksisterende rum.
+- TIMESTAMP|JOIN_ROOM|server|<rum>|Du er nu i rum <rum> – serveren bekræfter et gyldigt rumskift.
+- TIMESTAMP|ERROR|server||Rummet findes ikke – serveren afviser skiftet hvis rummet ikke eksisterer.
+
+Manuel kontrol (issue #16)
+
+1. Forbind Bob, Alice og Charlie. Alle starter i `lobby`.
+2. Lad Charlie skrive `/join room67`.
+3. Send "Hej fra Bob" fra Bob. Kontroller, at Bob og Alice modtager beskeden, men Charlie ikke gør.
+4. Send "Hej fra Charlie" fra Charlie. Kontroller, at kun Charlie modtager beskeden.
+5. Lad Alice skifte til `room67` med `/join room67`. Kontroller, at Alice og Charlie nu kan chatte sammen uden Bob.
+6. Forsøg at skifte til et rum, der ikke findes, fx `/join nonexistent`. Kontroller fejlbeskeden, og at det nuværende rum bevares.
 
 Manuel kontrol (issue #15)
 

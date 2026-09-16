@@ -35,24 +35,29 @@ public class ClientHandler implements Runnable {
                 Message message = Message.fromProtocol(line);
 
                 if (Message.TYPE_LOGIN.equals(message.getType())) {
-                    handleLogin(message.getText());
-                    continue;
+                   handleLogin(message.getText());
+                   continue;
                 }
 
                 if (username == null) {
-                    sendServerMessage(Message.TYPE_ERROR, "server", null, "Du skal vælge et brugernavn først");
-                    continue;
+                   sendServerMessage(Message.TYPE_ERROR, "server", null, "Du skal vælge et brugernavn først");
+                   continue;
+                }
+
+                if (Message.TYPE_JOIN_ROOM.equals(message.getType())) {
+                   handleJoinRoom(message.getText());
+                   continue;
                 }
 
                 if (!Message.TYPE_TEXT.equals(message.getType())) {
-                    sendServerMessage(Message.TYPE_ERROR, "server", null, "Ukendt meddelelsestype: " + message.getType());
-                    continue;
+                   sendServerMessage(Message.TYPE_ERROR, "server", null, "Ukendt meddelelsestype: " + message.getType());
+                   continue;
                 }
 
                 String targetRoom = message.getRoom();
                 if (targetRoom == null || targetRoom.isBlank() || room == null || !room.equals(targetRoom)) {
-                    sendServerMessage(Message.TYPE_ERROR, "server", null, "Beskedens TARGET svarer ikke til dit registrerede rum");
-                    continue;
+                   sendServerMessage(Message.TYPE_ERROR, "server", null, "Beskedens TARGET svarer ikke til dit registrerede rum");
+                   continue;
                 }
 
                 System.out.println(clientAddr + " (" + username + ") -> " + message.getText() + " [" + room + "]");
@@ -63,6 +68,7 @@ public class ClientHandler implements Runnable {
         } finally {
             unregisterUsername();
             leaveRoom();
+
             try {
                 socket.close();
             } catch (IOException ignore) {
@@ -73,90 +79,118 @@ public class ClientHandler implements Runnable {
 
     private void handleLogin(String requestedUsername) {
         if (requestedUsername == null) {
-            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet kan ikke være tomt");
+           sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet kan ikke være tomt");
+
             return;
         }
 
         String normalizedUsername = requestedUsername.trim();
         if (normalizedUsername.isEmpty()) {
-            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet kan ikke være tomt");
+           sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet kan ikke være tomt");
+
             return;
         }
 
         if (registeredUsers.putIfAbsent(normalizedUsername, this) != null) {
-            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet er optaget");
+           sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet er optaget");
+
             return;
         }
 
-        String previousUsername = this.username;
-        if (previousUsername != null && !previousUsername.equals(normalizedUsername)) {
-            registeredUsers.remove(previousUsername, this);
-        }
-        this.username = normalizedUsername;
-        joinRoom(ChatServer.DEFAULT_ROOM);
+       String previousUsername = this.username;
+       if (previousUsername != null && !previousUsername.equals(normalizedUsername)) {
+           registeredUsers.remove(previousUsername, this);
+       }
+       this.username = normalizedUsername;
+       joinRoom(ChatServer.DEFAULT_ROOM);
 
-        System.out.println(socket.getRemoteSocketAddress() + " registered username: " + username + " in room " + room);
-        sendServerMessage(Message.TYPE_LOGIN, "server", null, "Brugernavnet er accepteret: " + username);
+       System.out.println(socket.getRemoteSocketAddress() + " registered username: " + username + " in room " + room);
+       sendServerMessage(Message.TYPE_LOGIN, "server", null, "Brugernavnet er accepteret: " + username);
     }
 
     private void joinRoom(String targetRoom) {
-        if (targetRoom == null || targetRoom.isBlank()) {
-            targetRoom = ChatServer.DEFAULT_ROOM;
-        }
-        if (room != null && !room.equals(targetRoom)) {
-            leaveRoom();
-        }
+       if (targetRoom == null || targetRoom.isBlank()) {
+           targetRoom = ChatServer.DEFAULT_ROOM;
+       }
+       if (room != null && !room.equals(targetRoom)) {
+           leaveRoom();
+       }
 
-        room = targetRoom;
-        Set<ClientHandler> members = ChatServer.ROOMS.computeIfAbsent(room,
-                key -> Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>()));
-        members.add(this);
+       room = targetRoom;
+       Set<ClientHandler> members = ChatServer.ROOMS.computeIfAbsent(room,
+               key -> Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>()));
+       members.add(this);
     }
 
     private void leaveRoom() {
-        if (room == null) {
-            return;
-        }
-        Set<ClientHandler> members = ChatServer.ROOMS.get(room);
-        if (members != null) {
-            members.remove(this);
-            if (members.isEmpty()) {
-                ChatServer.ROOMS.remove(room, members);
-            }
-        }
-        room = null;
+       if (room == null) {
+           return;
+       }
+       Set<ClientHandler> members = ChatServer.ROOMS.get(room);
+       if (members != null) {
+           members.remove(this);
+           if (members.isEmpty()) {
+               ChatServer.ROOMS.remove(room, members);
+           }
+       }
+       room = null;
     }
 
     private void unregisterUsername() {
-        if (username != null) {
-            registeredUsers.remove(username, this);
-            username = null;
+       if (username != null) {
+           registeredUsers.remove(username, this);
+           username = null;
+       }
+    }
+
+    private void handleJoinRoom(String targetRoom) {
+        if (targetRoom == null || targetRoom.isBlank()) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Rumnavnet kan ikke være tomt");
+            return;
         }
+
+        Set<ClientHandler> targetRoomMembers = ChatServer.ROOMS.get(targetRoom);
+        if (targetRoomMembers == null) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Rummet findes ikke");
+            return;
+        }
+
+        if (room != null && room.equals(targetRoom)) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Du er allerede i det rum");
+            return;
+        }
+
+        leaveRoom();
+        room = targetRoom;
+        targetRoomMembers.add(this);
+
+        System.out.println(socket.getRemoteSocketAddress() + " (" + username + ") switched to room: " + room);
+        sendServerMessage(Message.TYPE_JOIN_ROOM, "server", room, "Du er nu i rum " + room);
     }
 
     private void broadcastMessage(String roomToSend, String text) {
-        if (username == null || text == null || roomToSend == null) {
-            return;
-        }
+       if (username == null || text == null || roomToSend == null) {
+           return;
+       }
 
-        Set<ClientHandler> roomMembers = ChatServer.ROOMS.get(roomToSend);
-        if (roomMembers == null) {
-            return;
-        }
+       Set<ClientHandler> roomMembers = ChatServer.ROOMS.get(roomToSend);
+       if (roomMembers == null) {
+           return;
+       }
 
-        for (ClientHandler client : roomMembers) {
-            if (client != null) {
-                client.sendServerMessage(Message.TYPE_TEXT, username, roomToSend, text);
-            }
-        }
+       for (ClientHandler client : roomMembers) {
+           if (client != null) {
+               client.sendServerMessage(Message.TYPE_TEXT, username, roomToSend, text);
+           }
+       }
     }
 
     private void sendServerMessage(String type, String sender, String room, String text) {
-        if (out == null) {
-            return;
-        }
-        synchronized (out) {
-            out.println(Message.formatServerMessage(type, sender, room, text));
-        }
+       if (out == null) {
+           return;
+       }
+       synchronized (out) {
+           out.println(Message.formatServerMessage(type, sender, room, text));
+       }
     }
 }

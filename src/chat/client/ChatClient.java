@@ -24,8 +24,9 @@ public class ChatClient {
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             AtomicBoolean loginAccepted = new AtomicBoolean(false);
             AtomicReference<CountDownLatch> loginLatchRef = new AtomicReference<>(new CountDownLatch(1));
+            AtomicReference<String> currentRoomRef = new AtomicReference<>(DEFAULT_ROOM);
 
-            Thread receiverThread = new Thread(() -> receiveServerMessages(in, loginLatchRef, loginAccepted), "chat-client-receiver");
+            Thread receiverThread = new Thread(() -> receiveServerMessages(in, loginLatchRef, loginAccepted, currentRoomRef), "chat-client-receiver");
             receiverThread.start();
 
             while (true) {
@@ -58,10 +59,29 @@ public class ChatClient {
             }
 
             System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Current room: " + DEFAULT_ROOM + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
+            System.out.println("\n--- Available Commands ---");
+            System.out.println("/join <room>  - Switch to a different chat room (e.g., /join room67)");
+            System.out.println("/help         - Show this help message");
+            System.out.println("--- End Commands ---\n");
+
 
             String line;
             while ((line = console.readLine()) != null) {
-               out.println(Message.fromText(DEFAULT_ROOM, line).toProtocolString());
+               if (line.startsWith("/join ")) {
+                   String targetRoom = line.substring(6).trim();
+                   if (!targetRoom.isEmpty()) {
+                       out.println(Message.fromJoinRoom(targetRoom).toProtocolString());
+                   } else {
+                       System.out.println("Usage: /join <room>");
+                   }
+               } else if (line.equals("/help")) {
+                   System.out.println("\n--- Available Commands ---");
+                   System.out.println("/join <room>  - Switch to a different chat room (e.g., /join room67)");
+                   System.out.println("/help         - Show this help message");
+                   System.out.println("--- End Commands ---\n");
+               } else if (!line.trim().isEmpty()) {
+                   out.println(Message.fromText(currentRoomRef.get(), line).toProtocolString());
+               }
             }
 
         } catch (IOException e) {
@@ -71,7 +91,8 @@ public class ChatClient {
 
     private static void receiveServerMessages(BufferedReader in,
                                              AtomicReference<CountDownLatch> loginLatchRef,
-                                             AtomicBoolean loginAccepted) {
+                                             AtomicBoolean loginAccepted,
+                                             AtomicReference<String> currentRoomRef) {
         try {
             String serverLine;
             while ((serverLine = in.readLine()) != null) {
@@ -101,6 +122,12 @@ public class ChatClient {
                        if (latch != null) {
                            latch.countDown();
                        }
+                       continue;
+                   }
+
+                   if (Message.TYPE_JOIN_ROOM.equals(type) && "server".equalsIgnoreCase(sender)) {
+                       System.out.println(formatted);
+                       currentRoomRef.set(room);
                        continue;
                    }
 
