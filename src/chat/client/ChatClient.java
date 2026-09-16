@@ -80,9 +80,10 @@ public class ChatClient {
                     String type = parts[1];
                     String sender = parts[2];
                     String text = parts.length == 5 ? parts[4] : "";
+                    String formatted = timestamp + "|" + type + "|" + sender + "||" + text;
 
                     if (Message.TYPE_ERROR.equals(type)) {
-                        System.out.println(timestamp + "|" + type + "|" + sender + "||" + text);
+                        System.out.println(formatted);
                         CountDownLatch latch = loginLatchRef.get();
                         if (latch != null) {
                             latch.countDown();
@@ -92,12 +93,17 @@ public class ChatClient {
                     }
 
                     if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
-                        System.out.println(timestamp + "|" + type + "|" + sender + "||" + text);
+                        System.out.println(formatted);
                         loginAccepted.set(true);
                         CountDownLatch latch = loginLatchRef.get();
                         if (latch != null) {
                             latch.countDown();
                         }
+                        continue;
+                    }
+
+                    if (Message.TYPE_TEXT.equals(type)) {
+                        System.out.println(formatted);
                         continue;
                     }
                 }

@@ -32,7 +32,14 @@ Beskedformater
 - TIMESTAMP|LOGIN|server||Brugernavnet er accepteret: <brugernavn> – serveren bekræfter et gyldigt login.
 - TIMESTAMP|ERROR|server||Brugernavnet er optaget – serveren afviser et allerede optaget brugernavn.
 - TEXT||<tekst> – klienten sender en chatbesked til serveren.
-- TIMESTAMP|TEXT|<brugernavn>||<tekst> – serverens format for videreformidlede beskeder (bruges i senere issues).
+- TIMESTAMP|TEXT|<brugernavn>||<tekst> – serverens format for videreformidlede beskeder til alle registrerede klienter, inklusive afsenderen.
+
+Manuel kontrol (issue #11)
+
+1. Start serveren. Start tre klienter med forskellige brugernavne, fx "Alice", "Bob" og "Charlie".
+2. Send "Hej fra Alice" fra Alice, derefter "Hej fra Bob" og "Hej fra Charlie". Kontroller, at hver klient modtager hver besked præcis én gang, og at hver meddelelse viser korrekt afsender og tekst.
+3. Lad én klient være stille uden konsolinput i et par sekunder. Kontroller, at den stadig modtager beskeder fra de andre klienter.
+4. Kontroller, at hver leveret besked vises med `split("\\|", 5)`-parse og formatteres som `TIMESTAMP|TEXT|<brugernavn>||<tekst>`.
 
 Manuel kontrol (issue #9 og #10)
 

@@ -46,6 +46,7 @@ public class ClientHandler implements Runnable {
                 }
 
                 System.out.println(clientAddr + " (" + username + ") -> " + message.getText());
+                broadcastMessage(message.getText());
             }
         } catch (IOException e) {
             System.err.println("Connection error with " + clientAddr + ": " + e.getMessage());
@@ -93,10 +94,24 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    private void broadcastMessage(String text) {
+        if (username == null || text == null) {
+            return;
+        }
+
+        for (ClientHandler client : registeredUsers.values()) {
+            if (client != null) {
+                client.sendServerMessage(Message.TYPE_TEXT, username, text);
+            }
+        }
+    }
+
     private void sendServerMessage(String type, String sender, String text) {
         if (out == null) {
             return;
         }
-        out.println(Message.formatServerMessage(type, sender, text));
+        synchronized (out) {
+            out.println(Message.formatServerMessage(type, sender, text));
+        }
     }
 }
