@@ -76,8 +76,8 @@ public final class Message {
        }
 
        if (rawMessage.startsWith(TYPE_JOIN_ROOM + "|")) {
-           String[] parts = rawMessage.split("\\|", 2);
-           String room = parts.length >= 2 ? parts[1] : "";
+           String[] parts = rawMessage.split("\\|", 3);
+           String room = parts.length >= 2 ? parts[1].trim() : "";
            return new Message(TYPE_JOIN_ROOM, room);
        }
 
