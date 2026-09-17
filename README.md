@@ -1,110 +1,160 @@
-﻿Chat TCP-server og konsolklient
+# Chat-miniprojekt
 
-Dette projekt indeholder en simpel ChatServer og ChatClient implementering, organiseret efter Clean Architecture.
+Et konsolbaseret chatprogram i Java, hvor flere klienter kommunikerer gennem en fælles TCP-server.
 
-Packages
+Programmet understøtter unikke brugernavne, chatrum, broadcast og private beskeder. Serveren har to faste rum: `lobby` og `room67`.
 
-- `chat.domain` – rene datamodeller (fx `Message`) uden protokol- eller socketkode.
-- `chat.application` – use cases og porte (`LoginUseCase`, `JoinRoomUseCase`, `PrivateMessageUseCase`).
-- `chat.adapters` – delt tekstprotokol (parsing og formatering) brugt af klient og server.
-- `chat.server` / `chat.server.adapters` – sockets, tråde, brugerregister og rum.
-- `chat.client` / `chat.client.adapters` – konsolklient og præsentation.
+## Start server og klient
 
-Kompilering
+### Forudsætninger
 
-Fra projektroden (kræver JDK):
+- Java JDK skal være installeret.
+- Projektet skal have en JDK valgt som Project SDK i IntelliJ.
 
-javac -d out $(Get-ChildItem -Path src -Recurse -Filter *.java | ForEach-Object { $_.FullName })
+### Start gennem IntelliJ
 
-Unit tests (JUnit 5, jar i `lib/`):
+1. Åbn projektet i IntelliJ.
+2. Kør `main()` i `chat.server.ChatServer`.
+3. Kør `main()` i `chat.client.ChatClient`.
+4. Start yderligere klientinstanser for at forbinde flere brugere. Aktivér **Allow multiple instances** i klientens run configuration, hvis det er nødvendigt.
+5. Vælg et forskelligt brugernavn i hver klient.
 
+Serveren lytter på port `5001`. Klienten forbinder som standard til `localhost`, så server og klient kører på samme computer.
+
+### Forbind fra en anden computer
+
+Begge computere skal kunne nå hinanden på netværket, eksempelvis gennem samme router.
+
+1. Start serveren på den ene computer.
+2. Find servercomputerens lokale IPv4-adresse under computerens netværksindstillinger.
+3. Ret `HOST` i `ChatClient` på den anden computer til serverens IP-adresse.
+4. Behold port `5001`, og start klienten igen.
+
+Servercomputerens firewall skal tillade indgående TCP-forbindelser på port `5001`.
+
+## Brug af programmet
+
+Når et brugernavn accepteres, bliver klienten automatisk medlem af `lobby`. Et optaget navn afvises, og brugeren kan vælge et andet på samme forbindelse.
+
+Almindelig tekst sendes til alle brugere i det aktuelle rum, inklusive afsenderen.
+
+| Input | Funktion |
+|---|---|
+| Almindelig tekst efterfulgt af Enter | Sender en besked til det aktuelle rum. |
+| `/join room67` | Skifter til `room67`. |
+| `/join lobby` | Skifter tilbage til `lobby`. |
+| `/msg Alice Hej Alice` | Sender en privat besked til Alice, uanset hendes chatrum. |
+| `/help` | Viser de tilgængelige kommandoer. |
+| `/quit` | Lukker forbindelsen og afslutter klienten. |
+
+Brugernavne sammenlignes med forskel på store og små bogstaver. `Bob` og `bob` er derfor forskellige navne. Brugernavne må ikke være tomme eller indeholde `|`.
+
+Brug navne uden mellemrum, så de kan angives som modtagere i `/msg`-kommandoen.
+
+## Beskedprotokol
+
+Klient og server kommunikerer med tekstlinjer. Hver besked afsluttes med et linjeskift, og felterne adskilles med `|`.
+
+### Fra klient til server
+
+Format:
+
+```text
+TYPE|TARGET|PAYLOAD
 ```
-New-Item -ItemType Directory -Force lib, out, test-out | Out-Null
-if (-not (Test-Path lib/junit-platform-console-standalone-1.11.4.jar)) {
-  Invoke-WebRequest -Uri https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar -OutFile lib/junit-platform-console-standalone-1.11.4.jar
-}
-javac -d out $(Get-ChildItem -Path src -Recurse -Filter *.java | ForEach-Object { $_.FullName })
-javac -cp "out;lib/junit-platform-console-standalone-1.11.4.jar" -d test-out $(Get-ChildItem -Path test -Recurse -Filter *.java | ForEach-Object { $_.FullName })
-java -jar lib/junit-platform-console-standalone-1.11.4.jar -cp "out;test-out" --scan-classpath
+
+- `TYPE` angiver handlingen.
+- `TARGET` angiver et rum eller en modtager. Feltet er tomt, når handlingen ikke kræver et mål.
+- `PAYLOAD` indeholder brugernavnet eller beskedteksten.
+
+Eksempler:
+
+```text
+LOGIN||Bob
+JOIN_ROOM|room67|
+TEXT|room67|Hej alle
+PRIVATE|Alice|Hej Alice
+QUIT||
 ```
 
-Kørsel
+| Type | Betydning |
+|---|---|
+| `LOGIN` | Vælger et brugernavn til forbindelsen. |
+| `JOIN_ROOM` | Anmoder om at skifte til et eksisterende rum. |
+| `TEXT` | Sender en besked til klientens aktuelle rum. |
+| `PRIVATE` | Sender en besked til én bestemt bruger. |
+| `QUIT` | Afslutter forbindelsen. |
 
-Start serveren i én terminal:
+`LOGIN` bruges kun til valg af brugernavn. Programmet har ikke brugerkonti eller adgangskoder.
 
-java -cp out chat.server.ChatServer
+### Fra server til klient
 
-Start op til tre klienter i hver deres terminal:
+Format:
 
-java -cp out chat.client.ChatClient
+```text
+TIMESTAMP|TYPE|SENDER|TARGET|PAYLOAD
+```
 
-Brug
+Serveren fastsætter tidspunktet og henter afsendernavnet fra den registrerede forbindelse. Tidsformatet er `yyyy-MM-dd HH:mm:ss`.
 
-Når en klient opretter forbindelse, bliver brugeren bedt om at vælge et brugernavn. Brugernavnet sendes til serveren i formatet LOGIN||<brugernavn>.
+Eksempler:
 
-Serveren registrerer navnet atomisk i et delt, trådsikkert register. Hvis navnet allerede er optaget, afvises forsøget uden at ændre den eksisterende registrering. Serveren sender derefter en fejlmeddelelse på serverformatet og klienten lader brugeren vælge et nyt navn på samme forbindelse.
+```text
+2026-09-17 12:00:00|LOGIN|server||Brugernavnet er accepteret: Bob
+2026-09-17 12:00:05|JOIN_ROOM|server|room67|Du er nu i rum room67
+2026-09-17 12:00:10|TEXT|Bob|room67|Hej alle
+2026-09-17 12:00:15|PRIVATE|Bob|Alice|Hej Alice
+2026-09-17 12:00:20|ERROR|server||Brugernavnet er optaget
+```
 
-Serveren starter med to faste rum: `lobby` og `room67`. Alle nye klienter bliver placeret i `lobby`, når deres brugernavn accepteres. Et klientforbindelses rumtilhørsforhold håndteres af serveren trådsikkert.
+| Type | Betydning |
+|---|---|
+| `LOGIN` | Bekræfter det accepterede brugernavn. |
+| `JOIN_ROOM` | Bekræfter rumskiftet og angiver det nye rum i TARGET. |
+| `TEXT` | Leverer en chatbesked til brugerne i rummet. |
+| `PRIVATE` | Leverer en privat besked til den angivne modtager. |
+| `ERROR` | Forklarer, hvorfor en besked eller handling blev afvist. |
 
-Efter et accepteret login kan klienten skrive tekst i konsollen. Hver linje sendes i formatet TEXT|<aktuelt rum>|<tekst>. Serveren logger hver modtaget besked sammen med klientens IP:port, det registrerede brugernavn og rummets navn.
+Ved `ERROR` er TARGET brugerens registrerede navn eller tomt, hvis forbindelsen endnu ikke har fået et navn.
 
-Brugeren kan skifte til et andet rum ved at skrive `/join <rum>` i konsollen. Kommandoen sender `JOIN_ROOM|<rum>|` til serveren, som validerer at rummet findes, fjerner brugeren fra det nuværende rum, og føjer brugeren til det nye rum.
+Tekstfelter må indeholde `|`. Serveren bruger højst tre felter ved parsing af `TEXT` og `PRIVATE`, mens klienten opdeler serverbeskeder i højst fem felter. Det bevarer resten som beskedtekst.
 
-Beskedformater
+Fejlformaterede beskeder afvises med `ERROR`, og forbindelsen holdes åben, så klienten kan sende en ny besked.
 
-- LOGIN||<brugernavn> – klienten sender et ønsket brugernavn til serveren.
-- TIMESTAMP|LOGIN|server||Brugernavnet er accepteret: <brugernavn> – serveren bekræfter et gyldigt login.
-- TIMESTAMP|ERROR|server||Brugernavnet er optaget – serveren afviser et allerede optaget brugernavn.
-- TEXT|<rum>|<tekst> – klienten sender en chatbesked til serveren med det rum, den er registreret i.
-- TIMESTAMP|TEXT|<brugernavn>|<rum>|<tekst> – serverens format for videreformidlede beskeder til alle registrerede klienter i samme rum, inklusive afsenderen.
-- TIMESTAMP|ERROR|server|<brugernavn>|Beskedens TARGET svarer ikke til dit registrerede rum – serveren afviser et meddelelsesforsøg, hvis klienten sender et andet TARGET end sit eget rum, og broadcaster ikke videre.
-- JOIN_ROOM|<rum>| – klienten sender en forespørgsel om at skifte til et eksisterende rum.
-- TIMESTAMP|JOIN_ROOM|server|<rum>|Du er nu i rum <rum> – serveren bekræfter et gyldigt rumskift.
-- /msg <brugernavn> <tekst> – klientens konsolkommando til at sende en privat besked til en bestemt registreret bruger (brugernavnet kan ikke indeholde mellemrum).
-- TIMESTAMP|PRIVATE|<afsender>|<modtager>|<tekst> – serverens format for private beskeder. Modtageren er kun den angivne bruger; beskeden må ikke broadcastes.
-- Hvis en privat besked er rettet mod en ikke-eksisterende bruger, sender serveren en TIMESTAMP|ERROR|server|<afsender>|<forklarende tekst> tilbage til afsenderen.
+## Diagrammer
 
-Fejlbeskeder bruger formatet `TIMESTAMP|ERROR|server|<brugernavn>|<fejlbeskrivelse>`. Target er tomt, indtil forbindelsen har fået et brugernavn. Derefter indeholder Target afsenderens registrerede brugernavn. Serveren afviser tomme linjer, ukendte beskedtyper og beskeder med manglende felter, men holder forbindelsen åben, så klienten kan sende næste gyldige besked. `|` i tekstfelter bevares.
+### Simpelt klassediagram
 
-Kommandoen `/quit` sender `QUIT||`, flusher linjen og lukker derefter klientens forbindelse. Serveren håndterer både `QUIT||`, EOF og læse- eller skrivefejl ved at fjerne forbindelsen fra brugerregister og rum. En skrivefejl hos én klient stopper ikke broadcast til de øvrige klienter.
+<img width="8192" height="5616" alt="Chat Application Message-2026-09-17-202650" src="https://github.com/user-attachments/assets/cf02eb77-ba97-4174-a5c9-89d4165482a2" />
 
-Manuel kontrol (issue #16)
+### Fuldt klassediagram
 
-1. Forbind Bob, Alice og Charlie. Alle starter i `lobby`.
-2. Lad Charlie skrive `/join room67`.
-3. Send "Hej fra Bob" fra Bob. Kontroller, at Bob og Alice modtager beskeden, men Charlie ikke gør.
-4. Send "Hej fra Charlie" fra Charlie. Kontroller, at kun Charlie modtager beskeden.
-5. Lad Alice skifte til `room67` med `/join room67`. Kontroller, at Alice og Charlie nu kan chatte sammen uden Bob.
-6. Forsøg at skifte til et rum, der ikke findes, fx `/join nonexistent`. Kontroller fejlbeskeden, og at det nuværende rum bevares.
+<img width="8192" height="5470" alt="Chat Application Message-2026-09-17-194844" src="https://github.com/user-attachments/assets/1cc770a0-dff6-4d77-89bf-9e6c91c085de" />
 
-Manuel kontrol (issue #15)
+### Sekvensdiagram — optaget brugernavn
 
-1. Start serveren. Kontroller, at den opretter de to faste rum `lobby` og `room67`.
-2. Start tre klienter med forskellige brugernavne. Kontroller, at alle tre automatisk placeres i `lobby`.
-3. Send "Hej fra Alice" fra Alice, derefter "Hej fra Bob" og "Hej fra Charlie". Kontroller, at alle tre klienter modtager beskederne med `lobby` som TARGET, og at hver besked vises som `TIMESTAMP|TEXT|<brugernavn>|lobby|<tekst>`.
-4. Test et ugyldigt TARGET ved at forsøge at sende med et forkert rum i teksten. Kontroller, at serveren svarer med `TIMESTAMP|ERROR|server|Bob|Beskedens TARGET svarer ikke til dit registrerede rum` uden at broadcastede beskeden.
+<img width="7252" height="5720" alt="Chat Application Message-2026-09-17-194943" src="https://github.com/user-attachments/assets/8d938d2a-3298-42e5-a40a-d8a7d47be114" />
 
-Manuel kontrol (issue #11)
+## Trådmodel og delte ressourcer
 
-1. Start serveren. Start tre klienter med forskellige brugernavne, fx "Alice", "Bob" og "Charlie".
-2. Send "Hej fra Alice" fra Alice, derefter "Hej fra Bob" og "Hej fra Charlie". Kontroller, at hver klient modtager hver besked præcis én gang, og at hver meddelelse viser korrekt afsender og tekst.
-3. Lad én klient være stille uden konsolinput i et par sekunder. Kontroller, at den stadig modtager beskeder fra de andre klienter.
-4. Kontroller, at hver leveret besked vises med `split("\\|", 5)`-parse og formatteres som `TIMESTAMP|TEXT|<brugernavn>|<rum>|<tekst>`.
+**Server:** Hovedtråden accepterer forbindelser med `ServerSocket.accept()`. Hver klient får sin egen `Socket` og `ClientHandler`, som køres af en `ExecutorService` med 3 arbejdstråde.
 
-Manuel kontrol (issue #9 og #10)
+**Klient:** Main-tråden læser tastaturinput og sender beskeder. En separat modtagertråd lytter på serveren og viser beskeder.
 
-1. Start serveren og én klient. Vælg brugernavnet "Bob". Kontroller, at serveren viser, at forbindelsen er registreret med brugernavnet "Bob" og at klienten får en loginbekræftelse.
-2. Send "Hej" fra klienten. Kontroller, at serveren logger den modtagne tekst sammen med "Bob" som afsender.
-3. Start en anden klient og vælg samme brugernavn "Bob". Kontroller, at serveren sender `TIMESTAMP|ERROR|server||Brugernavnet er optaget`, og at den anden klient kan vælge et nyt navn uden at lukke forbindelsen.
-4. Vælg "Alice" på den anden klients eksisterende forbindelse. Kontroller, at navnet accepteres og at begge klienter kan fortsætte med chatinput.
-5. Start yderligere klienter med forskellige brugernavne og send beskeder fra hver. Kontroller, at serveren viser det registrerede brugernavn for hver klient i stedet for kun socket-adressen.
+**Delte ressourcer:** Klienthandlerne deler brugerregisteret og rumsamlingen, som holder styr på brugernavne, forbindelser og rummenes medlemmer.
 
-Manuel kontrol (arbejdsprocessens trin 5)
+## Testresultater
+Alle vores test bestod, der er et scenarie vi ikke har testet, fordi vi mangler en udvidelse af programmet. Så om udvidelsen af programmet fungerer som beskrevet er ikke testet!
 
-1. Forbind Bob, Alice og Charlie. Send fejlformaterede protokollinjer fra en testklient, fx `TEXT` og `UKENDT||Hej`. Kontroller, at serveren svarer med `ERROR`, og send derefter en gyldig besked på samme forbindelse.
-2. Lad Bob afslutte med `/quit`. Kontroller, at Alice og Charlie stadig kan chatte, og at en ny klient kan vælge brugernavnet Bob.
-3. Stop Alices klientproces uden `/quit`. Kontroller, at serveren fortsætter, og at Alice kan vælge brugernavnet igen, efter afbrydelsen er registreret.
-4. Afbryd en klient, mens en anden sender beskeder. Kontroller, at de resterende klienter fortsat modtager beskeder.
-5. Stop serveren. Kontroller, at klienterne viser forbindelsesafbrydelsen, og at modtagertrådene stopper uden en gentagen fejlløkke.
+<img width="777" height="204" alt="billede" src="https://github.com/user-attachments/assets/f321cda7-1d8a-4ec3-8a0e-c79c207769e4" />
 
-Resultat: Socket-kontrollen gennemførte login for Bob, Alice og Charlie, modtog en `ERROR` for `UKENDT||Hej`, leverede efterfølgende en tekst med `|` til alle tre klienter, lukkede Bob med `QUIT||` og accepterede derefter en ny Bob-forbindelse.
+
+## AI-dokumentation
+Under refactoring afviste vi flere gange dens forslag, fordi den ikke overholdte vores Agent_Instructions
+<img width="417" height="58" alt="AI1" src="https://github.com/user-attachments/assets/dace25af-1c09-4282-b53e-71a52b0a0e01" />
+<img width="412" height="39" alt="AI2" src="https://github.com/user-attachments/assets/6aa59b64-727e-4090-abaa-cc5debfbaa54" />
+
+
+## Valgt udvidelse
+
+Udvidelsen er endnu ikke implementeret.
