@@ -6,8 +6,10 @@ import chat.server.ClientHandler;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 public class ChatRoomManagerImpl implements ChatRoomManager {
+    private static final Logger LOG = Logger.getLogger(ChatRoomManagerImpl.class.getName());
     @Override
     public void joinRoom(String room, ClientHandler member) {
         if (room == null || room.isBlank()) {
@@ -24,7 +26,9 @@ public class ChatRoomManagerImpl implements ChatRoomManager {
         Set<ClientHandler> members = ChatServer.ROOMS.get(room);
         if (members != null) {
             members.remove(member);
-            if (members.isEmpty()) {
+            if (members.isEmpty()
+                    && !ChatServer.DEFAULT_ROOM.equals(room)
+                    && !ChatServer.SECOND_ROOM.equals(room)) {
                 ChatServer.ROOMS.remove(room, members);
             }
         }
@@ -41,7 +45,12 @@ public class ChatRoomManagerImpl implements ChatRoomManager {
         Set<ClientHandler> members = getMembers(room);
         for (ClientHandler client : members) {
             if (client != null) {
-                client.deliverServerMessage("TEXT", sender, room, text);
+                try {
+                    client.deliverServerMessage("TEXT", sender, room, text);
+                } catch (RuntimeException e) {
+                    LOG.warning("Could not deliver broadcast: " + e.getMessage());
+                    client.closeConnection();
+                }
             }
         }
     }

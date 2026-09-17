@@ -21,7 +21,7 @@ public class MessageDispatcherImpl implements MessageDispatcher {
     public void sendErrorTo(String username, String text) {
         ClientHandler target = registry.get(username);
         if (target != null) {
-            target.deliverServerMessage("ERROR", "server", "", text);
+            target.deliverServerMessage("ERROR", "server", username, text);
         }
     }
 }

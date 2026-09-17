@@ -17,8 +17,10 @@ public class InMemoryClientRegistry implements ClientRegistry {
     }
 
     @Override
-    public void unregister(String username) {
-        backing.remove(username);
+    public void unregister(String username, ClientHandler handler) {
+        if (username != null && handler != null) {
+            backing.remove(username, handler);
+        }
     }
 
     @Override
