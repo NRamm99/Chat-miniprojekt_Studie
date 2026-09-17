@@ -1,26 +1,38 @@
 package chat.server;
 
 import chat.domain.Message;
+import chat.server.adapters.ChatRoomManager;
+import chat.server.adapters.ClientRegistry;
+import chat.server.adapters.MessageDispatcher;
+import chat.server.adapters.MessageParser;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.Collections;
-import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 
 public class ClientHandler implements Runnable {
     private final Socket socket;
-    private final ConcurrentMap<String, ClientHandler> registeredUsers;
+    private final ClientRegistry registry;
+    private final MessageDispatcher dispatcher;
+    private final ChatRoomManager roomManager;
+    private final MessageParser parser;
+
     private String username;
     private String room;
     private PrintWriter out;
 
-    public ClientHandler(Socket socket, ConcurrentMap<String, ClientHandler> registeredUsers) {
+    public ClientHandler(Socket socket,
+                         ClientRegistry registry,
+                         MessageDispatcher dispatcher,
+                         ChatRoomManager roomManager,
+                         MessageParser parser) {
         this.socket = socket;
-        this.registeredUsers = registeredUsers;
+        this.registry = registry;
+        this.dispatcher = dispatcher;
+        this.roomManager = roomManager;
+        this.parser = parser;
         this.room = ChatServer.DEFAULT_ROOM;
     }
 
@@ -32,7 +44,7 @@ public class ClientHandler implements Runnable {
 
             String line;
             while ((line = in.readLine()) != null) {
-                Message message = Message.fromProtocol(line);
+                Message message = parser.parse(line);
 
                 if (Message.TYPE_LOGIN.equals(message.getType())) {
                    handleLogin(message.getText());
@@ -66,13 +78,15 @@ public class ClientHandler implements Runnable {
                 }
 
                 System.out.println(clientAddr + " (" + username + ") -> " + message.getText() + " [" + room + "]");
-                broadcastMessage(room, message.getText());
+                roomManager.broadcast(room, username, message.getText());
             }
         } catch (IOException e) {
             System.err.println("Connection error with " + clientAddr + ": " + e.getMessage());
         } finally {
             unregisterUsername();
-            leaveRoom();
+            if (room != null) {
+                roomManager.leaveRoom(room, this);
+            }
 
             try {
                 socket.close();
@@ -85,29 +99,26 @@ public class ClientHandler implements Runnable {
     private void handleLogin(String requestedUsername) {
         if (requestedUsername == null) {
            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet kan ikke være tomt");
-
             return;
         }
 
         String normalizedUsername = requestedUsername.trim();
         if (normalizedUsername.isEmpty()) {
            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet kan ikke være tomt");
-
             return;
         }
 
-        if (registeredUsers.putIfAbsent(normalizedUsername, this) != null) {
+        if (!registry.register(normalizedUsername, this)) {
            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet er optaget");
-
             return;
         }
 
         String previousUsername = this.username;
         if (previousUsername != null && !previousUsername.equals(normalizedUsername)) {
-            registeredUsers.remove(previousUsername, this);
+            registry.unregister(previousUsername);
         }
         this.username = normalizedUsername;
-        joinRoom(ChatServer.DEFAULT_ROOM);
+        roomManager.joinRoom(ChatServer.DEFAULT_ROOM, this);
 
         System.out.println(socket.getRemoteSocketAddress() + " registered username: " + username + " in room " + room);
         sendServerMessage(Message.TYPE_LOGIN, "server", null, "Brugernavnet er accepteret: " + username);
@@ -118,32 +129,24 @@ public class ClientHandler implements Runnable {
            targetRoom = ChatServer.DEFAULT_ROOM;
        }
        if (room != null && !room.equals(targetRoom)) {
-           leaveRoom();
+           roomManager.leaveRoom(room, this);
        }
 
        room = targetRoom;
-       Set<ClientHandler> members = ChatServer.ROOMS.computeIfAbsent(room,
-               key -> Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>()));
-       members.add(this);
+       roomManager.joinRoom(room, this);
     }
 
     private void leaveRoom() {
        if (room == null) {
            return;
        }
-       Set<ClientHandler> members = ChatServer.ROOMS.get(room);
-       if (members != null) {
-           members.remove(this);
-           if (members.isEmpty()) {
-               ChatServer.ROOMS.remove(room, members);
-           }
-       }
+       roomManager.leaveRoom(room, this);
        room = null;
     }
 
     private void unregisterUsername() {
        if (username != null) {
-           registeredUsers.remove(username, this);
+           registry.unregister(username);
            username = null;
        }
     }
@@ -154,40 +157,24 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        Set<ClientHandler> targetRoomMembers = ChatServer.ROOMS.get(targetRoom);
-        if (targetRoomMembers == null) {
-            sendServerMessage(Message.TYPE_ERROR, "server", null, "Rummet findes ikke");
-            return;
-        }
-
         if (room != null && room.equals(targetRoom)) {
             sendServerMessage(Message.TYPE_ERROR, "server", null, "Du er allerede i det rum");
             return;
         }
 
+        // validate room existence via ChatServer.ROOMS map still used by ChatRoomManagerImpl
+        java.util.Set<ClientHandler> targetRoomMembers = ChatServer.ROOMS.get(targetRoom);
+        if (targetRoomMembers == null) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Rummet findes ikke");
+            return;
+        }
+
         leaveRoom();
         room = targetRoom;
-        targetRoomMembers.add(this);
+        roomManager.joinRoom(room, this);
 
         System.out.println(socket.getRemoteSocketAddress() + " (" + username + ") switched to room: " + room);
         sendServerMessage(Message.TYPE_JOIN_ROOM, "server", room, "Du er nu i rum " + room);
-    }
-
-    private void broadcastMessage(String roomToSend, String text) {
-       if (username == null || text == null || roomToSend == null) {
-           return;
-       }
-
-       Set<ClientHandler> roomMembers = ChatServer.ROOMS.get(roomToSend);
-       if (roomMembers == null) {
-           return;
-       }
-
-       for (ClientHandler client : roomMembers) {
-           if (client != null) {
-               client.deliverServerMessage("TEXT", username, roomToSend, text);
-           }
-       }
     }
 
     public void deliverServerMessage(String type, String sender, String room, String text) {
@@ -195,25 +182,20 @@ public class ClientHandler implements Runnable {
            return;
        }
        synchronized (out) {
-           out.println(Message.formatServerMessage(type, sender, room, text));
+           out.println(parser.format(type, sender, room, text));
        }
     }
 
-    // Backwards-compatible helper used by existing code paths
     private void sendServerMessage(String type, String sender, String room, String text) {
         deliverServerMessage(type, sender, room, text);
     }
 
     private void handlePrivateMessage(Message message) {
-        // Use application/service-style logic via PrivateMessageUseCase
         if (username == null) {
             deliverServerMessage(Message.TYPE_ERROR, "server", "", "Du skal være logget ind for at sende private beskeder");
             return;
         }
         String recipient = message.getRoom();
-        // create lightweight adapters on-the-fly backed by existing maps
-        chat.server.adapters.InMemoryClientRegistry registry = new chat.server.adapters.InMemoryClientRegistry(this.registeredUsers);
-        chat.server.adapters.MessageDispatcherImpl dispatcher = new chat.server.adapters.MessageDispatcherImpl(registry);
         chat.application.PrivateMessageUseCase useCase = new chat.application.PrivateMessageUseCase(registry, dispatcher);
         useCase.send(this.username, recipient, message.getText());
     }

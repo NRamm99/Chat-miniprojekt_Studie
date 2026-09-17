@@ -1,5 +1,10 @@
 package chat.server;
 
+import chat.server.adapters.ChatRoomManagerImpl;
+import chat.server.adapters.DefaultMessageParser;
+import chat.server.adapters.InMemoryClientRegistry;
+import chat.server.adapters.MessageDispatcherImpl;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -26,13 +31,20 @@ public class ChatServer {
         int port = DEFAULT_PORT;
         System.out.println("Starting ChatServer on port " + port);
         System.out.println("Available rooms: " + DEFAULT_ROOM + ", " + SECOND_ROOM);
+
+        // Create shared adapters
+        InMemoryClientRegistry registry = new InMemoryClientRegistry(REGISTERED_USERS);
+        MessageDispatcherImpl dispatcher = new MessageDispatcherImpl(registry);
+        ChatRoomManagerImpl roomManager = new ChatRoomManagerImpl();
+        DefaultMessageParser parser = new DefaultMessageParser();
+
         ExecutorService pool = Executors.newFixedThreadPool(3);
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("ChatServer listening on port " + port);
             while (true) {
                 Socket client = serverSocket.accept();
                 System.out.println("Accepted connection from " + client.getRemoteSocketAddress());
-                pool.execute(new ClientHandler(client, REGISTERED_USERS));
+                pool.execute(new ClientHandler(client, registry, dispatcher, roomManager, parser));
             }
         } catch (IOException e) {
             System.err.println("Server error: " + e.getMessage());
