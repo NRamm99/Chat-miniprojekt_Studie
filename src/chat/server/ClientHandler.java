@@ -215,26 +215,38 @@ public class ClientHandler implements Runnable {
         username = null;
         room = null;
 
-        registry.unregister(registeredUsername, this);
-        roomManager.leaveRoom(registeredRoom, this);
+        Socket localSocket = socket;
+        BufferedReader localReader = in;
+        PrintWriter localWriter = out;
 
-        BufferedReader reader = in;
-        if (reader != null) {
+        try {
+            if (localSocket != null && !localSocket.isClosed()) {
+                localSocket.close();
+            }
+        } catch (IOException e) {
+            LOG.fine("Could not close client socket: " + e.getMessage());
+        }
+
+        if (localReader != null) {
             try {
-                reader.close();
+                localReader.close();
             } catch (IOException e) {
                 LOG.fine("Could not close client input: " + e.getMessage());
             }
         }
-        PrintWriter writer = out;
-        if (writer != null) {
-            writer.close();
+        if (localWriter != null) {
+            localWriter.close();
         }
-        try {
-            socket.close();
-        } catch (IOException e) {
-            LOG.fine("Could not close client socket: " + e.getMessage());
+
+        if (registeredUsername != null) {
+            registry.unregister(registeredUsername, this);
         }
+        if (registeredRoom != null) {
+            roomManager.leaveRoom(registeredRoom, this);
+        }
+
+        in = null;
+        out = null;
     }
 
     private void handlePrivateMessage(Message message) {
