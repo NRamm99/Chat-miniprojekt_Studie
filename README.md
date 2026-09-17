@@ -169,7 +169,7 @@ Det betyder også at chat historik forsvinder efter server lukker.
 Der er blevet brugt "deque" i en hashmap, der lyder `ConcurrentMap<String, Deque<StoredMessage>> rooms`
 På denne måde bliver historik gemt pr room.
 Men deque er blevet valgt for at kunne arbejde med "begge sider af listen".
-Det har jeg gjort fordi jeg gerne vil begrænse historikken pr room til 20 beskeder- så når man joiner et rum, så får de de seneste 20 beskeder fra chatten.
+Det har vi gjort fordi vi gerne vil begrænse historikken pr room til 20 beskeder- så når man joiner et rum, så får de de seneste 20 beskeder fra chatten.
 
 1 Test:
 
