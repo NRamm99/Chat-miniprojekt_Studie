@@ -107,6 +107,11 @@ public class ClientHandler implements Runnable {
     }
 
     private void handleLogin(String requestedUsername) {
+        if (username != null) {
+           sendServerMessage(Message.TYPE_ERROR, "server", null, "Denne forbindelse har allerede et accepteret brugernavn");
+           return;
+        }
+
         if (requestedUsername == null) {
            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet kan ikke være tomt");
             return;
@@ -123,10 +128,6 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        String previousUsername = this.username;
-        if (previousUsername != null && !previousUsername.equals(normalizedUsername)) {
-            registry.unregister(previousUsername, this);
-        }
         this.username = normalizedUsername;
         roomManager.joinRoom(ChatServer.DEFAULT_ROOM, this);
 
