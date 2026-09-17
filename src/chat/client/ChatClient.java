@@ -68,13 +68,13 @@ public class ChatClient {
                }
             }
 
-            LOG.info("Connected to ChatServer at " + HOST + ":" + PORT + ". Current room: " + DEFAULT_ROOM + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
-            LOG.info("\n--- Available Commands ---");
-            LOG.info("/join <room>  - Switch to a different chat room (e.g., /join room67)");
-            LOG.info("/msg <user> <text> - Send a private message to a specific user");
-            LOG.info("/quit         - Close the connection and exit");
-            LOG.info("/help         - Show this help message");
-            LOG.info("--- End Commands ---\n");
+            System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Current room: " + DEFAULT_ROOM + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
+            System.out.println("\n--- Available Commands ---");
+            System.out.println("/join <room>  - Switch to a different chat room (e.g., /join room67)");
+            System.out.println("/msg <user> <text> - Send a private message to a specific user");
+            System.out.println("/quit         - Close the connection and exit");
+            System.out.println("/help         - Show this help message");
+            System.out.println("--- End Commands ---\n");
 
             String line;
             while ((line = console.readLine()) != null) {
@@ -88,25 +88,25 @@ public class ChatClient {
                    if (!targetRoom.isEmpty()) {
                        out.println(Message.fromJoinRoom(targetRoom).toProtocolString());
                    } else {
-                       LOG.info("Usage: /join <room>");
+                       System.out.println("Usage: /join <room>");
                    }
                } else if (line.startsWith("/msg ")) {
                    String rest = line.substring(5);
                    int idx = rest.indexOf(' ');
                    if (idx <= 0) {
-                       LOG.info("Usage: /msg <user> <text>");
+                       System.out.println("Usage: /msg <user> <text>");
                    } else {
                        String recipient = rest.substring(0, idx).trim();
                        String text = rest.substring(idx + 1);
                        out.println(Message.fromPrivate(recipient, text).toProtocolString());
                    }
                } else if (line.equals("/help")) {
-                   LOG.info("\n--- Available Commands ---");
-                   LOG.info("/join <room>  - Switch to a different chat room (e.g., /join room67)");
-                   LOG.info("/msg <user> <text> - Send a private message to a specific user");
-                   LOG.info("/quit         - Close the connection and exit");
-                   LOG.info("/help         - Show this help message");
-                   LOG.info("--- End Commands ---\n");
+                   System.out.println("\n--- Available Commands ---");
+                   System.out.println("/join <room>  - Switch to a different chat room (e.g., /join room67)");
+                   System.out.println("/msg <user> <text> - Send a private message to a specific user");
+                   System.out.println("/quit         - Close the connection and exit");
+                   System.out.println("/help         - Show this help message");
+                   System.out.println("--- End Commands ---\n");
                } else if (!line.trim().isEmpty()) {
                    out.println(Message.fromText(currentRoomRef.get(), line).toProtocolString());
                }
@@ -135,7 +135,7 @@ public class ChatClient {
                     String text = parts.length == 5 ? parts[4] : "";
 
                     if (Message.TYPE_ERROR.equals(type)) {
-                        LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         CountDownLatch latch = loginLatchRef.get();
                         if (latch != null) {
                             latch.countDown();
@@ -145,7 +145,7 @@ public class ChatClient {
                     }
 
                     if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
-                        LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         loginAccepted.set(true);
                         CountDownLatch latch = loginLatchRef.get();
                         if (latch != null) {
@@ -155,24 +155,24 @@ public class ChatClient {
                     }
 
                     if (Message.TYPE_JOIN_ROOM.equals(type) && "server".equalsIgnoreCase(sender)) {
-                        LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         currentRoomRef.set(room);
                         continue;
                     }
 
                     if (Message.TYPE_PRIVATE.equals(type)) {
                         // room is recipient; show clearly as private and show sender + text
-                        LOG.info(chat.client.adapters.ClientPresenter.presentPrivate(sender, text));
+                        System.out.println(chat.client.adapters.ClientPresenter.presentPrivate(sender, text));
                         continue;
                     }
 
                     if (Message.TYPE_TEXT.equals(type)) {
-                        LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         continue;
                     }
                 }
 
-                LOG.info(serverLine);
+                System.out.println(serverLine);
             }
             if (!clientClosing.get()) {
                 LOG.warning("Forbindelsen til serveren blev lukket.");
