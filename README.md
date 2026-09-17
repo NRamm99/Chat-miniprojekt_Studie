@@ -144,7 +144,7 @@ Fejlformaterede beskeder afvises med `ERROR`, og forbindelsen holdes åben, så 
 **Delte ressourcer:** Klienthandlerne deler brugerregisteret og rumsamlingen, som holder styr på brugernavne, forbindelser og rummenes medlemmer.
 
 ## Testresultater
-Alle vores test bestod, der er et scenarie vi ikke har testet, fordi vi mangler en udvidelse af programmet. Så om udvidelsen af programmet fungerer som beskrevet er ikke testet!
+Alle vores test bestod.
 
 <img width="777" height="204" alt="billede" src="https://github.com/user-attachments/assets/f321cda7-1d8a-4ec3-8a0e-c79c207769e4" />
 
@@ -160,4 +160,30 @@ Mindre eksempler
 
 ## Valgt udvidelse
 
-Udvidelsen er endnu ikke implementeret.
+lagring og visning af beskedhistorik  
+
+Der er blevet brugt "in-memory" lagring.
+Dvs der ikke er en teksfil eller lignende som gemmer.
+Det betyder også at chat historik forsvinder efter server lukker.
+
+Der er blevet brugt "deque" i en hashmap, der lyder `ConcurrentMap<String, Deque<StoredMessage>> rooms`
+På denne måde bliver historik gemt pr room.
+Men deque er blevet valgt for at kunne arbejde med "begge sider af listen".
+Det har jeg gjort fordi jeg gerne vil begrænse historikken pr room til 20 beskeder- så når man joiner et rum, så får de de seneste 20 beskeder fra chatten.
+
+1 Test:
+
+    `@Test
+    void appendDropsOldestWhenCapIsExceeded() {
+        InMemoryMessageHistory history = new InMemoryMessageHistory();
+        StoredMessage oldest = stored("lobby", "Alice", "0");
+        history.append(oldest);
+        for (int i = 1; i <= InMemoryMessageHistory.MAX_MESSAGES_PER_ROOM; i++) {
+            history.append(stored("lobby", "Alice", String.valueOf(i)));
+        }
+
+        List<StoredMessage> recent = history.recent("lobby");
+        assertEquals(InMemoryMessageHistory.MAX_MESSAGES_PER_ROOM, recent.size());
+        assertEquals("1", recent.get(0).getText());
+        assertEquals(String.valueOf(InMemoryMessageHistory.MAX_MESSAGES_PER_ROOM), recent.get(recent.size() - 1).getText());
+    }`
