@@ -162,9 +162,7 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-        // validate room existence via ChatServer.ROOMS map still used by ChatRoomManagerImpl
-        java.util.Set<ClientHandler> targetRoomMembers = ChatServer.ROOMS.get(targetRoom);
-        if (targetRoomMembers == null) {
+        if (!roomManager.roomExists(targetRoom)) {
             sendServerMessage(Message.TYPE_ERROR, "server", null, "Rummet findes ikke");
             return;
         }

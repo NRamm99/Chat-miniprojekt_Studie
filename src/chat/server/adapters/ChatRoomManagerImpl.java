@@ -4,18 +4,27 @@ import chat.server.ChatServer;
 import chat.server.ClientHandler;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 public class ChatRoomManagerImpl implements ChatRoomManager {
     private static final Logger LOG = Logger.getLogger(ChatRoomManagerImpl.class.getName());
+    private final ConcurrentMap<String, Set<ClientHandler>> rooms = new ConcurrentHashMap<>();
+
+    public ChatRoomManagerImpl() {
+        rooms.put(ChatServer.DEFAULT_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<>()));
+        rooms.put(ChatServer.SECOND_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<>()));
+    }
+
     @Override
     public void joinRoom(String room, ClientHandler member) {
         if (room == null || room.isBlank()) {
             room = ChatServer.DEFAULT_ROOM;
         }
-        Set<ClientHandler> members = ChatServer.ROOMS.computeIfAbsent(room,
+        Set<ClientHandler> members = rooms.computeIfAbsent(room,
                 key -> Collections.newSetFromMap(new ConcurrentHashMap<>()));
         members.add(member);
     }
@@ -23,21 +32,32 @@ public class ChatRoomManagerImpl implements ChatRoomManager {
     @Override
     public void leaveRoom(String room, ClientHandler member) {
         if (room == null) return;
-        Set<ClientHandler> members = ChatServer.ROOMS.get(room);
+        Set<ClientHandler> members = rooms.get(room);
         if (members != null) {
             members.remove(member);
             if (members.isEmpty()
                     && !ChatServer.DEFAULT_ROOM.equals(room)
                     && !ChatServer.SECOND_ROOM.equals(room)) {
-                ChatServer.ROOMS.remove(room, members);
+                rooms.remove(room, members);
             }
         }
     }
 
     @Override
+    public boolean roomExists(String room) {
+        return room != null && rooms.containsKey(room);
+    }
+
+    @Override
     public Set<ClientHandler> getMembers(String room) {
-        Set<ClientHandler> members = ChatServer.ROOMS.get(room);
-        return members == null ? Collections.emptySet() : members;
+        if (room == null) {
+            return Collections.emptySet();
+        }
+        Set<ClientHandler> members = rooms.get(room);
+        if (members == null) {
+            return Collections.emptySet();
+        }
+        return Collections.unmodifiableSet(new HashSet<>(members));
     }
 
     @Override

@@ -2,13 +2,13 @@ package chat.server.adapters;
 
 import chat.server.ClientHandler;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class InMemoryClientRegistry implements ClientRegistry {
-    private final ConcurrentMap<String, ClientHandler> backing;
+    private final ConcurrentMap<String, ClientHandler> backing = new ConcurrentHashMap<>();
 
-    public InMemoryClientRegistry(ConcurrentMap<String, ClientHandler> backing) {
-        this.backing = backing;
+    public InMemoryClientRegistry() {
     }
 
     @Override

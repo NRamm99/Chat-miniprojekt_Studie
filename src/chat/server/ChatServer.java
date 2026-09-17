@@ -8,10 +8,6 @@ import chat.server.adapters.MessageDispatcherImpl;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Collections;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
@@ -21,13 +17,6 @@ public class ChatServer {
     public static final int DEFAULT_PORT = 5001;
     public static final String DEFAULT_ROOM = "lobby";
     public static final String SECOND_ROOM = "room67";
-    public static final ConcurrentMap<String, ClientHandler> REGISTERED_USERS = new ConcurrentHashMap<>();
-    public static final ConcurrentMap<String, Set<ClientHandler>> ROOMS = new ConcurrentHashMap<>();
-
-    static {
-        ROOMS.put(DEFAULT_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<>()));
-        ROOMS.put(SECOND_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<>()));
-    }
 
     public static void main(@SuppressWarnings("unused") String[] args) {
         int port = DEFAULT_PORT;
@@ -35,7 +24,7 @@ public class ChatServer {
         LOG.fine("Available rooms: " + DEFAULT_ROOM + ", " + SECOND_ROOM);
 
         // Create shared adapters
-        InMemoryClientRegistry registry = new InMemoryClientRegistry(REGISTERED_USERS);
+        InMemoryClientRegistry registry = new InMemoryClientRegistry();
         MessageDispatcherImpl dispatcher = new MessageDispatcherImpl(registry);
         ChatRoomManagerImpl roomManager = new ChatRoomManagerImpl();
         DefaultMessageParser parser = new DefaultMessageParser();
