@@ -1,4 +1,4 @@
-﻿package chat.server;
+package chat.server;
 
 import chat.domain.Message;
 
@@ -120,7 +120,8 @@ public class ClientHandler implements Runnable {
        if (room != null && !room.equals(targetRoom)) {
            leaveRoom();
        }
-n       room = targetRoom;
+
+       room = targetRoom;
        Set<ClientHandler> members = ChatServer.ROOMS.computeIfAbsent(room,
                key -> Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>()));
        members.add(this);
@@ -196,6 +197,11 @@ public class ClientHandler implements Runnable {
        synchronized (out) {
            out.println(Message.formatServerMessage(type, sender, room, text));
        }
+    }
+
+    // Backwards-compatible helper used by existing code paths
+    private void sendServerMessage(String type, String sender, String room, String text) {
+        deliverServerMessage(type, sender, room, text);
     }
 
     private void handlePrivateMessage(Message message) {

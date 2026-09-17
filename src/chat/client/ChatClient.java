@@ -1,4 +1,4 @@
-﻿package chat.client;
+package chat.client;
 
 import chat.domain.Message;
 
@@ -107,49 +107,53 @@ public class ChatClient {
         try {
             String serverLine;
             while ((serverLine = in.readLine()) != null) {
-               String[] parts = serverLine.split("\\|", 5);
-               if (parts.length >= 4) {
-                   String timestamp = parts[0];
-                   String type = parts[1];
-                   String sender = parts[2];
-                   String room = parts.length > 3 ? parts[3] : "";
-                   String text = parts.length == 5 ? parts[4] : "";
+                String[] parts = serverLine.split("\\|", 5);
+                if (parts.length >= 4) {
+                    String timestamp = parts[0];
+                    String type = parts[1];
+                    String sender = parts[2];
+                    String room = parts.length > 3 ? parts[3] : "";
+                    String text = parts.length == 5 ? parts[4] : "";
 
-                   if (Message.TYPE_ERROR.equals(type)) {
-                       System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
-                       CountDownLatch latch = loginLatchRef.get();
-                       if (latch != null) {
-                           latch.countDown();
-                       }
-                       loginAccepted.set(false);
-                       continue;
-                   }
+                    if (Message.TYPE_ERROR.equals(type)) {
+                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        CountDownLatch latch = loginLatchRef.get();
+                        if (latch != null) {
+                            latch.countDown();
+                        }
+                        loginAccepted.set(false);
+                        continue;
+                    }
 
-                   if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
-                       System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
-                       loginAccepted.set(true);
-                       CountDownLatch latch = loginLatchRef.get();
-                       if (latch != null) {
-                           latch.countDown();
-                       }
-                       continue;
-                   }
+                    if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
+                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        loginAccepted.set(true);
+                        CountDownLatch latch = loginLatchRef.get();
+                        if (latch != null) {
+                            latch.countDown();
+                        }
+                        continue;
+                    }
 
-                   if (Message.TYPE_JOIN_ROOM.equals(type) && "server".equalsIgnoreCase(sender)) {
-                       System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
-                       currentRoomRef.set(room);
-                       continue;
-                   }
-n                   if (Message.TYPE_PRIVATE.equals(type)) {
-                       // room is recipient; show clearly as private and show sender + text
-                       System.out.println(chat.client.adapters.ClientPresenter.presentPrivate(sender, text));
-                       continue;
-                   }n                   if (Message.TYPE_TEXT.equals(type)) {
-                       System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
-                       continue;
-                   }
-               }
-n               System.out.println(serverLine);
+                    if (Message.TYPE_JOIN_ROOM.equals(type) && "server".equalsIgnoreCase(sender)) {
+                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        currentRoomRef.set(room);
+                        continue;
+                    }
+
+                    if (Message.TYPE_PRIVATE.equals(type)) {
+                        // room is recipient; show clearly as private and show sender + text
+                        System.out.println(chat.client.adapters.ClientPresenter.presentPrivate(sender, text));
+                        continue;
+                    }
+
+                    if (Message.TYPE_TEXT.equals(type)) {
+                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        continue;
+                    }
+                }
+
+                System.out.println(serverLine);
             }
         } catch (IOException e) {
             System.err.println("Server message error: " + e.getMessage());

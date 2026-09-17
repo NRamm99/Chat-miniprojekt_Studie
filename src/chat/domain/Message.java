@@ -83,7 +83,8 @@ public final class Message {
            String room = parts.length >= 2 ? parts[1].trim() : "";
            return new Message(TYPE_JOIN_ROOM, room);
        }
-n       if (rawMessage.startsWith(TYPE_PRIVATE + "|")) {
+
+       if (rawMessage.startsWith(TYPE_PRIVATE + "|")) {
            // PRIVATE|recipient|text
            String[] parts = rawMessage.split("\\|", 3);
            String recipient = parts.length >= 2 ? parts[1] : "";
@@ -97,7 +98,8 @@ public final class Message {
            String messageText = parts.length == 3 ? parts[2] : "";
            return new Message(TYPE_TEXT, messageText, room);
        }
-n       return new Message(TYPE_TEXT, rawMessage, "");
+
+       return new Message(TYPE_TEXT, rawMessage, "");
     }
 
     public String getType() {
