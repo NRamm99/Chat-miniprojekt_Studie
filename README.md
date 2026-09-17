@@ -156,6 +156,9 @@ Under refactoring afviste vi flere gange dens forslag, fordi den ikke overholdte
 Mindre eksempler
 <img width="1156" height="334" alt="billede" src="https://github.com/user-attachments/assets/a2cf7e28-8298-4885-8efa-f49de35dc68a" />
 
+<img width="560" height="197" alt="image" src="https://github.com/user-attachments/assets/3d000dd1-49ce-4a7d-b96f-70cd6c6b6847" />
+
+
 
 
 ## Valgt udvidelse
