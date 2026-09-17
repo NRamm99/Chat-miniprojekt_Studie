@@ -150,8 +150,10 @@ Alle vores test bestod, der er et scenarie vi ikke har testet, fordi vi mangler 
 
 
 ## AI-dokumentation
+Under refactoring afviste vi flere gange dens forslag, fordi den ikke overholdte vores Agent_Instructions
+<img width="417" height="58" alt="AI1" src="https://github.com/user-attachments/assets/dace25af-1c09-4282-b53e-71a52b0a0e01" />
+<img width="412" height="39" alt="AI2" src="https://github.com/user-attachments/assets/6aa59b64-727e-4090-abaa-cc5debfbaa54" />
 
-> Indsæt jeres AI-dokumentation her.
 
 ## Valgt udvidelse
 
