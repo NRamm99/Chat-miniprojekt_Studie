@@ -26,10 +26,6 @@ public final class Message {
         this.room = room == null ? "" : room;
     }
 
-    public static Message fromText(String text) {
-       return fromText("", text);
-    }
-
     public static Message fromText(String room, String text) {
        return new Message(TYPE_TEXT, text, room);
     }
@@ -44,10 +40,6 @@ public final class Message {
 
     public static Message fromPrivate(String recipient, String text) {
        return new Message(TYPE_PRIVATE, text, recipient);
-    }
-
-    public static String formatServerMessage(String type, String sender, String text) {
-       return formatServerMessage(type, sender, "", text);
     }
 
     public static String formatServerMessage(String type, String sender, String room, String text) {
@@ -79,8 +71,9 @@ public final class Message {
        }
 
        if (rawMessage.startsWith(TYPE_JOIN_ROOM + "|")) {
-           String[] parts = rawMessage.split("\\|", 3);
-           String room = parts.length >= 2 ? parts[1].trim() : "";
+           // Expected format: JOIN_ROOM|roomName (room may be empty but we parse safely)
+           String[] parts = rawMessage.split("\\|", 2);
+           String room = parts.length == 2 ? parts[1].trim() : "";
            return new Message(TYPE_JOIN_ROOM, room);
        }
 
