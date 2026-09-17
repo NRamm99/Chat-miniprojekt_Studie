@@ -1,4 +1,4 @@
-package chat.client;
+﻿package chat.client;
 
 import chat.domain.Message;
 
@@ -61,9 +61,9 @@ public class ChatClient {
             System.out.println("Connected to ChatServer at " + HOST + ":" + PORT + ". Current room: " + DEFAULT_ROOM + ". Type messages and press Enter to send. Ctrl+D (or Ctrl+Z then Enter on Windows) to exit.");
             System.out.println("\n--- Available Commands ---");
             System.out.println("/join <room>  - Switch to a different chat room (e.g., /join room67)");
+            System.out.println("/msg <user> <text> - Send a private message to a specific user");
             System.out.println("/help         - Show this help message");
             System.out.println("--- End Commands ---\n");
-
 
             String line;
             while ((line = console.readLine()) != null) {
@@ -74,9 +74,20 @@ public class ChatClient {
                    } else {
                        System.out.println("Usage: /join <room>");
                    }
+               } else if (line.startsWith("/msg ")) {
+                   String rest = line.substring(5);
+                   int idx = rest.indexOf(' ');
+                   if (idx <= 0) {
+                       System.out.println("Usage: /msg <user> <text>");
+                   } else {
+                       String recipient = rest.substring(0, idx).trim();
+                       String text = rest.substring(idx + 1);
+                       out.println(Message.fromPrivate(recipient, text).toProtocolString());
+                   }
                } else if (line.equals("/help")) {
                    System.out.println("\n--- Available Commands ---");
                    System.out.println("/join <room>  - Switch to a different chat room (e.g., /join room67)");
+                   System.out.println("/msg <user> <text> - Send a private message to a specific user");
                    System.out.println("/help         - Show this help message");
                    System.out.println("--- End Commands ---\n");
                } else if (!line.trim().isEmpty()) {
@@ -103,10 +114,9 @@ public class ChatClient {
                    String sender = parts[2];
                    String room = parts.length > 3 ? parts[3] : "";
                    String text = parts.length == 5 ? parts[4] : "";
-                   String formatted = timestamp + "|" + type + "|" + sender + "|" + room + "|" + text;
 
                    if (Message.TYPE_ERROR.equals(type)) {
-                       System.out.println(formatted);
+                       System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                        CountDownLatch latch = loginLatchRef.get();
                        if (latch != null) {
                            latch.countDown();
@@ -116,7 +126,7 @@ public class ChatClient {
                    }
 
                    if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
-                       System.out.println(formatted);
+                       System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                        loginAccepted.set(true);
                        CountDownLatch latch = loginLatchRef.get();
                        if (latch != null) {
@@ -126,18 +136,21 @@ public class ChatClient {
                    }
 
                    if (Message.TYPE_JOIN_ROOM.equals(type) && "server".equalsIgnoreCase(sender)) {
-                       System.out.println(formatted);
+                       System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                        currentRoomRef.set(room);
                        continue;
                    }
-
-                   if (Message.TYPE_TEXT.equals(type)) {
-                       System.out.println(formatted);
+n                   if (Message.TYPE_PRIVATE.equals(type)) {
+                       // room is recipient; show clearly as private and show sender + text
+                       System.out.println("[PRIVATE] " + sender + ": " + text);
+                       continue;
+                   }
+n                   if (Message.TYPE_TEXT.equals(type)) {
+                       System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                        continue;
                    }
                }
-
-               System.out.println(serverLine);
+n               System.out.println(serverLine);
             }
         } catch (IOException e) {
             System.err.println("Server message error: " + e.getMessage());

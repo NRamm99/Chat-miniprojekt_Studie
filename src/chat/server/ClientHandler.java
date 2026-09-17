@@ -1,4 +1,4 @@
-package chat.server;
+﻿package chat.server;
 
 import chat.domain.Message;
 
@@ -46,6 +46,11 @@ public class ClientHandler implements Runnable {
 
                 if (Message.TYPE_JOIN_ROOM.equals(message.getType())) {
                    handleJoinRoom(message.getText());
+                   continue;
+                }
+
+                if (Message.TYPE_PRIVATE.equals(message.getType())) {
+                   handlePrivateMessage(message);
                    continue;
                 }
 
@@ -97,15 +102,15 @@ public class ClientHandler implements Runnable {
             return;
         }
 
-       String previousUsername = this.username;
-       if (previousUsername != null && !previousUsername.equals(normalizedUsername)) {
-           registeredUsers.remove(previousUsername, this);
-       }
-       this.username = normalizedUsername;
-       joinRoom(ChatServer.DEFAULT_ROOM);
+        String previousUsername = this.username;
+        if (previousUsername != null && !previousUsername.equals(normalizedUsername)) {
+            registeredUsers.remove(previousUsername, this);
+        }
+        this.username = normalizedUsername;
+        joinRoom(ChatServer.DEFAULT_ROOM);
 
-       System.out.println(socket.getRemoteSocketAddress() + " registered username: " + username + " in room " + room);
-       sendServerMessage(Message.TYPE_LOGIN, "server", null, "Brugernavnet er accepteret: " + username);
+        System.out.println(socket.getRemoteSocketAddress() + " registered username: " + username + " in room " + room);
+        sendServerMessage(Message.TYPE_LOGIN, "server", null, "Brugernavnet er accepteret: " + username);
     }
 
     private void joinRoom(String targetRoom) {
@@ -115,8 +120,7 @@ public class ClientHandler implements Runnable {
        if (room != null && !room.equals(targetRoom)) {
            leaveRoom();
        }
-
-       room = targetRoom;
+n       room = targetRoom;
        Set<ClientHandler> members = ChatServer.ROOMS.computeIfAbsent(room,
                key -> Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>()));
        members.add(this);
@@ -193,4 +197,23 @@ public class ClientHandler implements Runnable {
            out.println(Message.formatServerMessage(type, sender, room, text));
        }
     }
-}
+
+    private void handlePrivateMessage(Message message) {
+        if (username == null) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Du skal være logget ind for at sende private beskeder");
+            return;
+        }
+        String recipient = message.getRoom();
+        if (recipient == null || recipient.isBlank()) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Ugyldigt brugernavn for privat besked");
+            return;
+        }
+        ClientHandler target = registeredUsers.get(recipient);
+        if (target == null) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugeren findes ikke: " + recipient);
+            return;
+        }
+        // send private message only to recipient
+        target.sendServerMessage(Message.TYPE_PRIVATE, username, recipient, message.getText());
+    }
+

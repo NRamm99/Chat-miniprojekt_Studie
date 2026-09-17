@@ -1,4 +1,4 @@
-Chat TCP-server og konsolklient
+﻿Chat TCP-server og konsolklient
 
 Dette projekt indeholder en simpel ChatServer og ChatClient implementering, organiseret i små packages efter ansvar.
 
@@ -40,7 +40,9 @@ Beskedformater
 - TIMESTAMP|ERROR|server||Beskedens TARGET svarer ikke til dit registrerede rum – serveren afviser et meddelelsesforsøg, hvis klienten sender et andet TARGET end sit eget rum, og broadcaster ikke videre.
 - JOIN_ROOM|<rum>| – klienten sender en forespørgsel om at skifte til et eksisterende rum.
 - TIMESTAMP|JOIN_ROOM|server|<rum>|Du er nu i rum <rum> – serveren bekræfter et gyldigt rumskift.
-- TIMESTAMP|ERROR|server||Rummet findes ikke – serveren afviser skiftet hvis rummet ikke eksisterer.
+- /msg <brugernavn> <tekst> – klientens konsolkommando til at sende en privat besked til en bestemt registreret bruger (brugernavnet kan ikke indeholde mellemrum).
+- TIMESTAMP|PRIVATE|<afsender>|<modtager>|<tekst> – serverens format for private beskeder. Modtageren er kun den angivne bruger; beskeden må ikke broadcastes.
+- Hvis en privat besked er rettet mod en ikke-eksisterende bruger, sender serveren en TIMESTAMP|ERROR|server||<forklarende tekst> tilbage til afsenderen.
 
 Manuel kontrol (issue #16)
 
@@ -70,5 +72,5 @@ Manuel kontrol (issue #9 og #10)
 1. Start serveren og én klient. Vælg brugernavnet "Bob". Kontroller, at serveren viser, at forbindelsen er registreret med brugernavnet "Bob" og at klienten får en loginbekræftelse.
 2. Send "Hej" fra klienten. Kontroller, at serveren logger den modtagne tekst sammen med "Bob" som afsender.
 3. Start en anden klient og vælg samme brugernavn "Bob". Kontroller, at serveren sender `TIMESTAMP|ERROR|server||Brugernavnet er optaget`, og at den anden klient kan vælge et nyt navn uden at lukke forbindelsen.
-4. Vælg "Alice" på den anden klients eksisterende forbindelse. Kontroller, at navnet accepteres og at både klienter kan fortsætte med chatinput.
+4. Vælg "Alice" på den anden klients eksisterende forbindelse. Kontroller, at navnet accepteres og at begge klienter kan fortsætte med chatinput.
 5. Start yderligere klienter med forskellige brugernavne og send beskeder fra hver. Kontroller, at serveren viser det registrerede brugernavn for hver klient i stedet for kun socket-adressen.

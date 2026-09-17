@@ -8,12 +8,13 @@ public final class Message {
     public static final String TYPE_LOGIN = "LOGIN";
     public static final String TYPE_ERROR = "ERROR";
     public static final String TYPE_JOIN_ROOM = "JOIN_ROOM";
+    public static final String TYPE_PRIVATE = "PRIVATE";
     public static final DateTimeFormatter SERVER_TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final String type;
     private final String text;
-    private final String room;
+    private final String room; // for TEXT: room; for PRIVATE: recipient username
 
     private Message(String type, String text) {
        this(type, text, "");
@@ -33,13 +34,16 @@ public final class Message {
        return new Message(TYPE_TEXT, text, room);
     }
 
-
     public static Message fromLogin(String username) {
        return new Message(TYPE_LOGIN, username);
     }
 
     public static Message fromJoinRoom(String room) {
        return new Message(TYPE_JOIN_ROOM, room);
+    }
+
+    public static Message fromPrivate(String recipient, String text) {
+       return new Message(TYPE_PRIVATE, text, recipient);
     }
 
     public static String formatServerMessage(String type, String sender, String text) {
@@ -58,7 +62,6 @@ public final class Message {
                + roomPart
                + payload;
     }
-
 
     public static Message fromProtocol(String rawMessage) {
        if (rawMessage == null) {
@@ -80,6 +83,13 @@ public final class Message {
            String room = parts.length >= 2 ? parts[1].trim() : "";
            return new Message(TYPE_JOIN_ROOM, room);
        }
+n       if (rawMessage.startsWith(TYPE_PRIVATE + "|")) {
+           // PRIVATE|recipient|text
+           String[] parts = rawMessage.split("\\|", 3);
+           String recipient = parts.length >= 2 ? parts[1] : "";
+           String messageText = parts.length == 3 ? parts[2] : "";
+           return new Message(TYPE_PRIVATE, messageText, recipient);
+       }
 
        String[] parts = rawMessage.split("\\|", 3);
        if (parts.length >= 2 && TYPE_TEXT.equals(parts[0])) {
@@ -87,10 +97,8 @@ public final class Message {
            String messageText = parts.length == 3 ? parts[2] : "";
            return new Message(TYPE_TEXT, messageText, room);
        }
-
-       return new Message(TYPE_TEXT, rawMessage, "");
+n       return new Message(TYPE_TEXT, rawMessage, "");
     }
-
 
     public String getType() {
         return type;
@@ -105,6 +113,9 @@ public final class Message {
     }
 
     public String toProtocolString() {
+       if (TYPE_PRIVATE.equals(type)) {
+           return TYPE_PRIVATE + "|" + room + "|" + text;
+       }
        if (TYPE_TEXT.equals(type) && room != null && !room.isBlank()) {
            return type + "|" + room + "|" + text;
        }
