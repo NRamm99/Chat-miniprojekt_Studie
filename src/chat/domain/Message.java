@@ -8,12 +8,13 @@ public final class Message {
     public static final String TYPE_LOGIN = "LOGIN";
     public static final String TYPE_ERROR = "ERROR";
     public static final String TYPE_JOIN_ROOM = "JOIN_ROOM";
+    public static final String TYPE_PRIVATE = "PRIVATE";
     public static final DateTimeFormatter SERVER_TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final String type;
     private final String text;
-    private final String room;
+    private final String room; // for TEXT: room; for PRIVATE: recipient username
 
     private Message(String type, String text) {
        this(type, text, "");
@@ -25,14 +26,9 @@ public final class Message {
         this.room = room == null ? "" : room;
     }
 
-    public static Message fromText(String text) {
-       return fromText("", text);
-    }
-
     public static Message fromText(String room, String text) {
        return new Message(TYPE_TEXT, text, room);
     }
-
 
     public static Message fromLogin(String username) {
        return new Message(TYPE_LOGIN, username);
@@ -42,8 +38,8 @@ public final class Message {
        return new Message(TYPE_JOIN_ROOM, room);
     }
 
-    public static String formatServerMessage(String type, String sender, String text) {
-       return formatServerMessage(type, sender, "", text);
+    public static Message fromPrivate(String recipient, String text) {
+       return new Message(TYPE_PRIVATE, text, recipient);
     }
 
     public static String formatServerMessage(String type, String sender, String room, String text) {
@@ -58,7 +54,6 @@ public final class Message {
                + roomPart
                + payload;
     }
-
 
     public static Message fromProtocol(String rawMessage) {
        if (rawMessage == null) {
@@ -76,9 +71,18 @@ public final class Message {
        }
 
        if (rawMessage.startsWith(TYPE_JOIN_ROOM + "|")) {
-           String[] parts = rawMessage.split("\\|", 3);
-           String room = parts.length >= 2 ? parts[1].trim() : "";
+           // Expected format: JOIN_ROOM|roomName (room may be empty but we parse safely)
+           String[] parts = rawMessage.split("\\|", 2);
+           String room = parts.length == 2 ? parts[1].trim() : "";
            return new Message(TYPE_JOIN_ROOM, room);
+       }
+
+       if (rawMessage.startsWith(TYPE_PRIVATE + "|")) {
+           // PRIVATE|recipient|text
+           String[] parts = rawMessage.split("\\|", 3);
+           String recipient = parts.length >= 2 ? parts[1] : "";
+           String messageText = parts.length == 3 ? parts[2] : "";
+           return new Message(TYPE_PRIVATE, messageText, recipient);
        }
 
        String[] parts = rawMessage.split("\\|", 3);
@@ -90,7 +94,6 @@ public final class Message {
 
        return new Message(TYPE_TEXT, rawMessage, "");
     }
-
 
     public String getType() {
         return type;
@@ -105,6 +108,9 @@ public final class Message {
     }
 
     public String toProtocolString() {
+       if (TYPE_PRIVATE.equals(type)) {
+           return TYPE_PRIVATE + "|" + room + "|" + text;
+       }
        if (TYPE_TEXT.equals(type) && room != null && !room.isBlank()) {
            return type + "|" + room + "|" + text;
        }

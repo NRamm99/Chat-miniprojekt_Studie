@@ -1,5 +1,10 @@
 package chat.server;
 
+import chat.server.adapters.ChatRoomManagerImpl;
+import chat.server.adapters.DefaultMessageParser;
+import chat.server.adapters.InMemoryClientRegistry;
+import chat.server.adapters.MessageDispatcherImpl;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -9,8 +14,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 public class ChatServer {
+    private static final Logger LOG = Logger.getLogger(ChatServer.class.getName());
     public static final int DEFAULT_PORT = 5001;
     public static final String DEFAULT_ROOM = "lobby";
     public static final String SECOND_ROOM = "room67";
@@ -22,23 +29,33 @@ public class ChatServer {
         ROOMS.put(SECOND_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<>()));
     }
 
-    public static void main(String[] args) {
+    public static void main(@SuppressWarnings("unused") String[] args) {
         int port = DEFAULT_PORT;
-        System.out.println("Starting ChatServer on port " + port);
-        System.out.println("Available rooms: " + DEFAULT_ROOM + ", " + SECOND_ROOM);
-        ExecutorService pool = Executors.newFixedThreadPool(3);
+        LOG.info("Starting ChatServer on port " + port);
+        LOG.fine("Available rooms: " + DEFAULT_ROOM + ", " + SECOND_ROOM);
+
+        // Create shared adapters
+        InMemoryClientRegistry registry = new InMemoryClientRegistry(REGISTERED_USERS);
+        MessageDispatcherImpl dispatcher = new MessageDispatcherImpl(registry);
+        ChatRoomManagerImpl roomManager = new ChatRoomManagerImpl();
+        DefaultMessageParser parser = new DefaultMessageParser();
+
         try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("ChatServer listening on port " + port);
-            while (true) {
-                Socket client = serverSocket.accept();
-                System.out.println("Accepted connection from " + client.getRemoteSocketAddress());
-                pool.execute(new ClientHandler(client, REGISTERED_USERS));
+            ExecutorService pool = Executors.newFixedThreadPool(3);
+            try {
+                LOG.info("ChatServer listening on port " + port);
+                while (!serverSocket.isClosed()) {
+                    Socket client = serverSocket.accept();
+                    LOG.fine("Accepted connection from " + client.getRemoteSocketAddress());
+                    pool.execute(new ClientHandler(client, registry, dispatcher, roomManager, parser));
+                }
+            } finally {
+                pool.shutdown();
             }
         } catch (IOException e) {
-            System.err.println("Server error: " + e.getMessage());
+            LOG.severe("Server error: " + e.getMessage());
         } finally {
-            pool.shutdown();
-            System.out.println("Server shutting down.");
+            LOG.info("Server shutting down.");
         }
     }
 }
