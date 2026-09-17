@@ -124,17 +124,7 @@ public class ClientHandler implements Runnable {
         sendServerMessage(Message.TYPE_LOGIN, "server", null, "Brugernavnet er accepteret: " + username);
     }
 
-    private void joinRoom(String targetRoom) {
-       if (targetRoom == null || targetRoom.isBlank()) {
-           targetRoom = ChatServer.DEFAULT_ROOM;
-       }
-       if (room != null && !room.equals(targetRoom)) {
-           roomManager.leaveRoom(room, this);
-       }
-
-       room = targetRoom;
-       roomManager.joinRoom(room, this);
-    }
+    // removed unused helper joinRoom — room management is handled via roomManager directly
 
     private void leaveRoom() {
        if (room == null) {
