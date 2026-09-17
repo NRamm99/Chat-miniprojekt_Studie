@@ -1,12 +1,32 @@
 ﻿Chat TCP-server og konsolklient
 
-Dette projekt indeholder en simpel ChatServer og ChatClient implementering, organiseret i små packages efter ansvar.
+Dette projekt indeholder en simpel ChatServer og ChatClient implementering, organiseret efter Clean Architecture.
+
+Packages
+
+- `chat.domain` – rene datamodeller (fx `Message`) uden protokol- eller socketkode.
+- `chat.application` – use cases og porte (`LoginUseCase`, `JoinRoomUseCase`, `PrivateMessageUseCase`).
+- `chat.adapters` – delt tekstprotokol (parsing og formatering) brugt af klient og server.
+- `chat.server` / `chat.server.adapters` – sockets, tråde, brugerregister og rum.
+- `chat.client` / `chat.client.adapters` – konsolklient og præsentation.
 
 Kompilering
 
 Fra projektroden (kræver JDK):
 
-javac -d out $(Get-ChildItem -Recurse -Filter *.java | ForEach-Object { $_.FullName })
+javac -d out $(Get-ChildItem -Path src -Recurse -Filter *.java | ForEach-Object { $_.FullName })
+
+Unit tests (JUnit 5, jar i `lib/`):
+
+```
+New-Item -ItemType Directory -Force lib, out, test-out | Out-Null
+if (-not (Test-Path lib/junit-platform-console-standalone-1.11.4.jar)) {
+  Invoke-WebRequest -Uri https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.11.4/junit-platform-console-standalone-1.11.4.jar -OutFile lib/junit-platform-console-standalone-1.11.4.jar
+}
+javac -d out $(Get-ChildItem -Path src -Recurse -Filter *.java | ForEach-Object { $_.FullName })
+javac -cp "out;lib/junit-platform-console-standalone-1.11.4.jar" -d test-out $(Get-ChildItem -Path test -Recurse -Filter *.java | ForEach-Object { $_.FullName })
+java -jar lib/junit-platform-console-standalone-1.11.4.jar -cp "out;test-out" --scan-classpath
+```
 
 Kørsel
 

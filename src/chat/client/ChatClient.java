@@ -1,5 +1,7 @@
 package chat.client;
 
+import chat.adapters.DefaultMessageParser;
+import chat.adapters.MessageParser;
 import chat.domain.Message;
 
 import java.io.BufferedReader;
@@ -24,6 +26,7 @@ public class ChatClient {
 
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            MessageParser parser = new DefaultMessageParser();
             AtomicBoolean loginAccepted = new AtomicBoolean(false);
             AtomicBoolean serverConnectionClosed = new AtomicBoolean(false);
             AtomicBoolean clientClosing = new AtomicBoolean(false);
@@ -51,7 +54,7 @@ public class ChatClient {
                CountDownLatch nextLoginLatch = new CountDownLatch(1);
                loginLatchRef.set(nextLoginLatch);
 
-               out.println(Message.fromLogin(username).toProtocolString());
+               out.println(parser.toProtocolString(Message.fromLogin(username)));
                try {
                    nextLoginLatch.await();
                } catch (InterruptedException e) {
@@ -80,13 +83,13 @@ public class ChatClient {
             while ((line = console.readLine()) != null) {
                if (line.equals("/quit")) {
                    clientClosing.set(true);
-                   out.println(Message.fromQuit().toProtocolString());
+                   out.println(parser.toProtocolString(Message.fromQuit()));
                    out.flush();
                    break;
                } else if (line.startsWith("/join ")) {
                    String targetRoom = line.substring(6).trim();
                    if (!targetRoom.isEmpty()) {
-                       out.println(Message.fromJoinRoom(targetRoom).toProtocolString());
+                       out.println(parser.toProtocolString(Message.fromJoinRoom(targetRoom)));
                    } else {
                        System.out.println("Usage: /join <room>");
                    }
@@ -98,7 +101,7 @@ public class ChatClient {
                    } else {
                        String recipient = rest.substring(0, idx).trim();
                        String text = rest.substring(idx + 1);
-                       out.println(Message.fromPrivate(recipient, text).toProtocolString());
+                       out.println(parser.toProtocolString(Message.fromPrivate(recipient, text)));
                    }
                } else if (line.equals("/help")) {
                    System.out.println("\n--- Available Commands ---");
@@ -108,7 +111,7 @@ public class ChatClient {
                    System.out.println("/help         - Show this help message");
                    System.out.println("--- End Commands ---\n");
                } else if (!line.trim().isEmpty()) {
-                   out.println(Message.fromText(currentRoomRef.get(), line).toProtocolString());
+                   out.println(parser.toProtocolString(Message.fromText(currentRoomRef.get(), line)));
                }
             }
 

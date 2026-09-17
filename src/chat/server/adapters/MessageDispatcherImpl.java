@@ -1,8 +1,9 @@
 package chat.server.adapters;
 
+import chat.application.ports.MessageGateway;
 import chat.server.ClientHandler;
 
-public class MessageDispatcherImpl implements MessageDispatcher {
+public class MessageDispatcherImpl implements MessageDispatcher, MessageGateway {
     private final ClientRegistry registry;
 
     public MessageDispatcherImpl(ClientRegistry registry) {

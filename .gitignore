@@ -26,5 +26,9 @@ bin/
 ### VS Code ###
 .vscode/
 
+### Local build ###
+lib/
+test-out/
+
 ### Mac OS ###
 .DS_Store

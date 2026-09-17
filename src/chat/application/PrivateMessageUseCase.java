@@ -1,26 +1,26 @@
 package chat.application;
 
-import chat.server.adapters.ClientRegistry;
-import chat.server.adapters.MessageDispatcher;
+import chat.application.ports.MessageGateway;
+import chat.application.ports.UserPresence;
 
 public class PrivateMessageUseCase {
-    private final ClientRegistry registry;
-    private final MessageDispatcher dispatcher;
+    private final UserPresence presence;
+    private final MessageGateway messages;
 
-    public PrivateMessageUseCase(ClientRegistry registry, MessageDispatcher dispatcher) {
-        this.registry = registry;
-        this.dispatcher = dispatcher;
+    public PrivateMessageUseCase(UserPresence presence, MessageGateway messages) {
+        this.presence = presence;
+        this.messages = messages;
     }
 
     public void send(String sender, String recipient, String text) {
         if (recipient == null || recipient.isBlank()) {
-            dispatcher.sendErrorTo(sender, "Ugyldigt brugernavn for privat besked");
+            messages.sendErrorTo(sender, "Ugyldigt brugernavn for privat besked");
             return;
         }
-        if (registry.get(recipient) == null) {
-            dispatcher.sendErrorTo(sender, "Brugeren findes ikke: " + recipient);
+        if (!presence.isOnline(recipient)) {
+            messages.sendErrorTo(sender, "Brugeren findes ikke: " + recipient);
             return;
         }
-        dispatcher.sendPrivate(sender, recipient, text);
+        messages.sendPrivate(sender, recipient, text);
     }
 }
