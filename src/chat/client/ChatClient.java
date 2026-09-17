@@ -25,10 +25,14 @@ public class ChatClient {
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             AtomicBoolean loginAccepted = new AtomicBoolean(false);
+            AtomicBoolean serverConnectionClosed = new AtomicBoolean(false);
+            AtomicBoolean clientClosing = new AtomicBoolean(false);
             AtomicReference<CountDownLatch> loginLatchRef = new AtomicReference<>(new CountDownLatch(1));
             AtomicReference<String> currentRoomRef = new AtomicReference<>(DEFAULT_ROOM);
 
-            Thread receiverThread = new Thread(() -> receiveServerMessages(in, loginLatchRef, loginAccepted, currentRoomRef), "chat-client-receiver");
+            Thread receiverThread = new Thread(() -> receiveServerMessages(
+                    in, loginLatchRef, loginAccepted, currentRoomRef, serverConnectionClosed, clientClosing),
+                    "chat-client-receiver");
             receiverThread.start();
 
             while (true) {
@@ -55,6 +59,10 @@ public class ChatClient {
                    return;
                }
 
+               if (serverConnectionClosed.get()) {
+                   return;
+               }
+
                if (loginAccepted.get()) {
                    break;
                }
@@ -64,12 +72,18 @@ public class ChatClient {
             LOG.info("\n--- Available Commands ---");
             LOG.info("/join <room>  - Switch to a different chat room (e.g., /join room67)");
             LOG.info("/msg <user> <text> - Send a private message to a specific user");
+            LOG.info("/quit         - Close the connection and exit");
             LOG.info("/help         - Show this help message");
             LOG.info("--- End Commands ---\n");
 
             String line;
             while ((line = console.readLine()) != null) {
-               if (line.startsWith("/join ")) {
+               if (line.equals("/quit")) {
+                   clientClosing.set(true);
+                   out.println(Message.fromQuit().toProtocolString());
+                   out.flush();
+                   break;
+               } else if (line.startsWith("/join ")) {
                    String targetRoom = line.substring(6).trim();
                    if (!targetRoom.isEmpty()) {
                        out.println(Message.fromJoinRoom(targetRoom).toProtocolString());
@@ -90,6 +104,7 @@ public class ChatClient {
                    LOG.info("\n--- Available Commands ---");
                    LOG.info("/join <room>  - Switch to a different chat room (e.g., /join room67)");
                    LOG.info("/msg <user> <text> - Send a private message to a specific user");
+                   LOG.info("/quit         - Close the connection and exit");
                    LOG.info("/help         - Show this help message");
                    LOG.info("--- End Commands ---\n");
                } else if (!line.trim().isEmpty()) {
@@ -105,7 +120,9 @@ public class ChatClient {
     private static void receiveServerMessages(BufferedReader in,
                                              AtomicReference<CountDownLatch> loginLatchRef,
                                              AtomicBoolean loginAccepted,
-                                             AtomicReference<String> currentRoomRef) {
+                                             AtomicReference<String> currentRoomRef,
+                                             AtomicBoolean serverConnectionClosed,
+                                             AtomicBoolean clientClosing) {
         try {
             String serverLine;
             while ((serverLine = in.readLine()) != null) {
@@ -118,7 +135,7 @@ public class ChatClient {
                     String text = parts.length == 5 ? parts[4] : "";
 
                     if (Message.TYPE_ERROR.equals(type)) {
-                                            LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         CountDownLatch latch = loginLatchRef.get();
                         if (latch != null) {
                             latch.countDown();
@@ -128,7 +145,7 @@ public class ChatClient {
                     }
 
                     if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
-                                            LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         loginAccepted.set(true);
                         CountDownLatch latch = loginLatchRef.get();
                         if (latch != null) {
@@ -138,27 +155,38 @@ public class ChatClient {
                     }
 
                     if (Message.TYPE_JOIN_ROOM.equals(type) && "server".equalsIgnoreCase(sender)) {
-                                            LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         currentRoomRef.set(room);
                         continue;
                     }
 
                     if (Message.TYPE_PRIVATE.equals(type)) {
                         // room is recipient; show clearly as private and show sender + text
-                                                LOG.info(chat.client.adapters.ClientPresenter.presentPrivate(sender, text));
+                        LOG.info(chat.client.adapters.ClientPresenter.presentPrivate(sender, text));
                         continue;
                     }
 
                     if (Message.TYPE_TEXT.equals(type)) {
-                                            LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
+                        LOG.info(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         continue;
                     }
                 }
 
                 LOG.info(serverLine);
             }
+            if (!clientClosing.get()) {
+                LOG.warning("Forbindelsen til serveren blev lukket.");
+            }
         } catch (IOException e) {
-            LOG.warning("Server message error: " + e.getMessage());
+            if (!clientClosing.get()) {
+                LOG.warning("Forbindelsen til serveren blev afbrudt: " + e.getMessage());
+            }
+        } finally {
+            serverConnectionClosed.set(true);
+            CountDownLatch latch = loginLatchRef.get();
+            if (latch != null) {
+                latch.countDown();
+            }
         }
     }
 }

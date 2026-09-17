@@ -37,12 +37,16 @@ Beskedformater
 - TIMESTAMP|ERROR|server||Brugernavnet er optaget – serveren afviser et allerede optaget brugernavn.
 - TEXT|<rum>|<tekst> – klienten sender en chatbesked til serveren med det rum, den er registreret i.
 - TIMESTAMP|TEXT|<brugernavn>|<rum>|<tekst> – serverens format for videreformidlede beskeder til alle registrerede klienter i samme rum, inklusive afsenderen.
-- TIMESTAMP|ERROR|server||Beskedens TARGET svarer ikke til dit registrerede rum – serveren afviser et meddelelsesforsøg, hvis klienten sender et andet TARGET end sit eget rum, og broadcaster ikke videre.
+- TIMESTAMP|ERROR|server|<brugernavn>|Beskedens TARGET svarer ikke til dit registrerede rum – serveren afviser et meddelelsesforsøg, hvis klienten sender et andet TARGET end sit eget rum, og broadcaster ikke videre.
 - JOIN_ROOM|<rum>| – klienten sender en forespørgsel om at skifte til et eksisterende rum.
 - TIMESTAMP|JOIN_ROOM|server|<rum>|Du er nu i rum <rum> – serveren bekræfter et gyldigt rumskift.
 - /msg <brugernavn> <tekst> – klientens konsolkommando til at sende en privat besked til en bestemt registreret bruger (brugernavnet kan ikke indeholde mellemrum).
 - TIMESTAMP|PRIVATE|<afsender>|<modtager>|<tekst> – serverens format for private beskeder. Modtageren er kun den angivne bruger; beskeden må ikke broadcastes.
-- Hvis en privat besked er rettet mod en ikke-eksisterende bruger, sender serveren en TIMESTAMP|ERROR|server||<forklarende tekst> tilbage til afsenderen.
+- Hvis en privat besked er rettet mod en ikke-eksisterende bruger, sender serveren en TIMESTAMP|ERROR|server|<afsender>|<forklarende tekst> tilbage til afsenderen.
+
+Fejlbeskeder bruger formatet `TIMESTAMP|ERROR|server|<brugernavn>|<fejlbeskrivelse>`. Target er tomt, indtil forbindelsen har fået et brugernavn. Derefter indeholder Target afsenderens registrerede brugernavn. Serveren afviser tomme linjer, ukendte beskedtyper og beskeder med manglende felter, men holder forbindelsen åben, så klienten kan sende næste gyldige besked. `|` i tekstfelter bevares.
+
+Kommandoen `/quit` sender `QUIT||`, flusher linjen og lukker derefter klientens forbindelse. Serveren håndterer både `QUIT||`, EOF og læse- eller skrivefejl ved at fjerne forbindelsen fra brugerregister og rum. En skrivefejl hos én klient stopper ikke broadcast til de øvrige klienter.
 
 Manuel kontrol (issue #16)
 
@@ -58,7 +62,7 @@ Manuel kontrol (issue #15)
 1. Start serveren. Kontroller, at den opretter de to faste rum `lobby` og `room67`.
 2. Start tre klienter med forskellige brugernavne. Kontroller, at alle tre automatisk placeres i `lobby`.
 3. Send "Hej fra Alice" fra Alice, derefter "Hej fra Bob" og "Hej fra Charlie". Kontroller, at alle tre klienter modtager beskederne med `lobby` som TARGET, og at hver besked vises som `TIMESTAMP|TEXT|<brugernavn>|lobby|<tekst>`.
-4. Test et ugyldigt TARGET ved at forsøge at sende med et forkert rum i teksten. Kontroller, at serveren svarer med `TIMESTAMP|ERROR|server||Beskedens TARGET svarer ikke til dit registrerede rum` uden at broadcastede beskeden.
+4. Test et ugyldigt TARGET ved at forsøge at sende med et forkert rum i teksten. Kontroller, at serveren svarer med `TIMESTAMP|ERROR|server|Bob|Beskedens TARGET svarer ikke til dit registrerede rum` uden at broadcastede beskeden.
 
 Manuel kontrol (issue #11)
 
@@ -74,3 +78,13 @@ Manuel kontrol (issue #9 og #10)
 3. Start en anden klient og vælg samme brugernavn "Bob". Kontroller, at serveren sender `TIMESTAMP|ERROR|server||Brugernavnet er optaget`, og at den anden klient kan vælge et nyt navn uden at lukke forbindelsen.
 4. Vælg "Alice" på den anden klients eksisterende forbindelse. Kontroller, at navnet accepteres og at begge klienter kan fortsætte med chatinput.
 5. Start yderligere klienter med forskellige brugernavne og send beskeder fra hver. Kontroller, at serveren viser det registrerede brugernavn for hver klient i stedet for kun socket-adressen.
+
+Manuel kontrol (arbejdsprocessens trin 5)
+
+1. Forbind Bob, Alice og Charlie. Send fejlformaterede protokollinjer fra en testklient, fx `TEXT` og `UKENDT||Hej`. Kontroller, at serveren svarer med `ERROR`, og send derefter en gyldig besked på samme forbindelse.
+2. Lad Bob afslutte med `/quit`. Kontroller, at Alice og Charlie stadig kan chatte, og at en ny klient kan vælge brugernavnet Bob.
+3. Stop Alices klientproces uden `/quit`. Kontroller, at serveren fortsætter, og at Alice kan vælge brugernavnet igen, efter afbrydelsen er registreret.
+4. Afbryd en klient, mens en anden sender beskeder. Kontroller, at de resterende klienter fortsat modtager beskeder.
+5. Stop serveren. Kontroller, at klienterne viser forbindelsesafbrydelsen, og at modtagertrådene stopper uden en gentagen fejlløkke.
+
+Resultat: Socket-kontrollen gennemførte login for Bob, Alice og Charlie, modtog en `ERROR` for `UKENDT||Hej`, leverede efterfølgende en tekst med `|` til alle tre klienter, lukkede Bob med `QUIT||` og accepterede derefter en ny Bob-forbindelse.

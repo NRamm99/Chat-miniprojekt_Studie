@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 public class ClientHandler implements Runnable {
@@ -20,10 +21,12 @@ public class ClientHandler implements Runnable {
     private final MessageDispatcher dispatcher;
     private final ChatRoomManager roomManager;
     private final MessageParser parser;
+    private final AtomicBoolean cleanedUp = new AtomicBoolean(false);
 
-    private String username;
-    private String room;
-    private PrintWriter out;
+    private volatile String username;
+    private volatile String room;
+    private volatile BufferedReader in;
+    private volatile PrintWriter out;
 
     public ClientHandler(Socket socket,
                          ClientRegistry registry,
@@ -41,12 +44,23 @@ public class ClientHandler implements Runnable {
     @Override
     public void run() {
         String clientAddr = socket.getRemoteSocketAddress().toString();
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+        try {
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
 
             String line;
             while ((line = in.readLine()) != null) {
-                Message message = parser.parse(line);
+                Message message;
+                try {
+                    message = parser.parse(line);
+                } catch (IllegalArgumentException e) {
+                    sendError(e.getMessage());
+                    continue;
+                }
+
+                if (Message.TYPE_QUIT.equals(message.getType())) {
+                    break;
+                }
 
                 if (Message.TYPE_LOGIN.equals(message.getType())) {
                    handleLogin(message.getText());
@@ -69,13 +83,13 @@ public class ClientHandler implements Runnable {
                 }
 
                 if (!Message.TYPE_TEXT.equals(message.getType())) {
-                   sendServerMessage(Message.TYPE_ERROR, "server", null, "Ukendt meddelelsestype: " + message.getType());
+                   sendError("Ukendt meddelelsestype: " + message.getType());
                    continue;
                 }
 
                 String targetRoom = message.getRoom();
                 if (targetRoom == null || targetRoom.isBlank() || room == null || !room.equals(targetRoom)) {
-                   sendServerMessage(Message.TYPE_ERROR, "server", null, "Beskedens TARGET svarer ikke til dit registrerede rum");
+                   sendError("Beskedens TARGET svarer ikke til dit registrerede rum");
                    continue;
                 }
 
@@ -83,17 +97,11 @@ public class ClientHandler implements Runnable {
                 roomManager.broadcast(room, username, message.getText());
             }
         } catch (IOException e) {
-            LOG.warning("Connection error with " + clientAddr + ": " + e.getMessage());
+            if (!cleanedUp.get()) {
+                LOG.warning("Connection error with " + clientAddr + ": " + e.getMessage());
+            }
         } finally {
-            unregisterUsername();
-            if (room != null) {
-                roomManager.leaveRoom(room, this);
-            }
-
-            try {
-                socket.close();
-            } catch (IOException ignore) {
-            }
+            closeConnection();
             LOG.info("Connection closed: " + clientAddr);
         }
     }
@@ -117,7 +125,7 @@ public class ClientHandler implements Runnable {
 
         String previousUsername = this.username;
         if (previousUsername != null && !previousUsername.equals(normalizedUsername)) {
-            registry.unregister(previousUsername);
+            registry.unregister(previousUsername, this);
         }
         this.username = normalizedUsername;
         roomManager.joinRoom(ChatServer.DEFAULT_ROOM, this);
@@ -134,13 +142,6 @@ public class ClientHandler implements Runnable {
        }
        roomManager.leaveRoom(room, this);
        room = null;
-    }
-
-    private void unregisterUsername() {
-       if (username != null) {
-           registry.unregister(username);
-           username = null;
-       }
     }
 
     private void handleJoinRoom(String targetRoom) {
@@ -170,16 +171,63 @@ public class ClientHandler implements Runnable {
     }
 
     public void deliverServerMessage(String type, String sender, String room, String text) {
-       if (out == null) {
+       PrintWriter writer = out;
+       if (writer == null || cleanedUp.get()) {
            return;
        }
-       synchronized (out) {
-           out.println(parser.format(type, sender, room, text));
+       synchronized (writer) {
+           if (cleanedUp.get()) {
+               return;
+           }
+           writer.println(parser.format(type, sender, room, text));
+           writer.flush();
+           if (writer.checkError()) {
+               closeConnection();
+           }
        }
     }
 
     private void sendServerMessage(String type, String sender, String room, String text) {
+        if (Message.TYPE_ERROR.equals(type) && room == null) {
+            room = username;
+        }
         deliverServerMessage(type, sender, room, text);
+    }
+
+    private void sendError(String description) {
+        sendServerMessage(Message.TYPE_ERROR, "server", null, description);
+    }
+
+    public void closeConnection() {
+        if (!cleanedUp.compareAndSet(false, true)) {
+            return;
+        }
+
+        String registeredUsername = username;
+        String registeredRoom = room;
+        username = null;
+        room = null;
+
+        registry.unregister(registeredUsername, this);
+        roomManager.leaveRoom(registeredRoom, this);
+
+        BufferedReader reader = in;
+        if (reader != null) {
+            try {
+                reader.close();
+            } catch (IOException e) {
+                LOG.fine("Could not close client input: " + e.getMessage());
+            }
+        }
+        PrintWriter writer = out;
+        if (writer != null) {
+            writer.close();
+        }
+        try {
+            socket.close();
+        } catch (IOException e) {
+            LOG.fine("Could not close client socket: " + e.getMessage());
+        }
     }
 
     private void handlePrivateMessage(Message message) {

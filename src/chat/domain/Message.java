@@ -9,6 +9,7 @@ public final class Message {
     public static final String TYPE_ERROR = "ERROR";
     public static final String TYPE_JOIN_ROOM = "JOIN_ROOM";
     public static final String TYPE_PRIVATE = "PRIVATE";
+    public static final String TYPE_QUIT = "QUIT";
     public static final DateTimeFormatter SERVER_TIMESTAMP_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -42,6 +43,10 @@ public final class Message {
        return new Message(TYPE_PRIVATE, text, recipient);
     }
 
+    public static Message fromQuit() {
+       return new Message(TYPE_QUIT, "");
+    }
+
     public static String formatServerMessage(String type, String sender, String room, String text) {
        String messageType = type == null ? TYPE_ERROR : type;
        String messageSender = sender == null ? "server" : sender;
@@ -59,40 +64,50 @@ public final class Message {
        if (rawMessage == null) {
            throw new IllegalArgumentException("Message cannot be null");
        }
-
-       if (rawMessage.startsWith(TYPE_LOGIN + "||")) {
-           String username = rawMessage.substring((TYPE_LOGIN + "||").length());
-           return new Message(TYPE_LOGIN, username);
+       if (rawMessage.isBlank()) {
+           throw new IllegalArgumentException("Tom besked");
        }
 
-       if (rawMessage.startsWith(TYPE_TEXT + "||")) {
-           String text = rawMessage.substring((TYPE_TEXT + "||").length());
-           return new Message(TYPE_TEXT, text, "");
-       }
+       int separator = rawMessage.indexOf('|');
+       String type = separator < 0 ? rawMessage : rawMessage.substring(0, separator);
 
-       if (rawMessage.startsWith(TYPE_JOIN_ROOM + "|")) {
-           // Expected format: JOIN_ROOM|roomName (room may be empty but we parse safely)
-           String[] parts = rawMessage.split("\\|", 2);
-           String room = parts.length == 2 ? parts[1].trim() : "";
-           return new Message(TYPE_JOIN_ROOM, room);
-       }
+       switch (type) {
+           case TYPE_LOGIN:
+               if (!rawMessage.startsWith(TYPE_LOGIN + "||")) {
+                   throw new IllegalArgumentException("LOGIN kræver formatet LOGIN||<brugernavn>");
+               }
+               return new Message(TYPE_LOGIN, rawMessage.substring((TYPE_LOGIN + "||").length()));
 
-       if (rawMessage.startsWith(TYPE_PRIVATE + "|")) {
-           // PRIVATE|recipient|text
-           String[] parts = rawMessage.split("\\|", 3);
-           String recipient = parts.length >= 2 ? parts[1] : "";
-           String messageText = parts.length == 3 ? parts[2] : "";
-           return new Message(TYPE_PRIVATE, messageText, recipient);
-       }
+           case TYPE_TEXT:
+               String[] textParts = rawMessage.split("\\|", 3);
+               if (textParts.length < 3) {
+                   throw new IllegalArgumentException("Manglende påkrævede felter for TEXT");
+               }
+               return new Message(TYPE_TEXT, textParts[2], textParts[1]);
 
-       String[] parts = rawMessage.split("\\|", 3);
-       if (parts.length >= 2 && TYPE_TEXT.equals(parts[0])) {
-           String room = parts.length >= 2 ? parts[1] : "";
-           String messageText = parts.length == 3 ? parts[2] : "";
-           return new Message(TYPE_TEXT, messageText, room);
-       }
+           case TYPE_JOIN_ROOM:
+               String[] joinParts = rawMessage.split("\\|", -1);
+               if (joinParts.length != 3 || !joinParts[2].isEmpty()) {
+                   throw new IllegalArgumentException("Manglende påkrævede felter for JOIN_ROOM");
+               }
+               return new Message(TYPE_JOIN_ROOM, joinParts[1].trim());
 
-       return new Message(TYPE_TEXT, rawMessage, "");
+           case TYPE_PRIVATE:
+               String[] privateParts = rawMessage.split("\\|", 3);
+               if (privateParts.length < 3) {
+                   throw new IllegalArgumentException("Manglende påkrævede felter for PRIVATE");
+               }
+               return new Message(TYPE_PRIVATE, privateParts[2], privateParts[1]);
+
+           case TYPE_QUIT:
+               if (!rawMessage.equals(TYPE_QUIT + "||")) {
+                   throw new IllegalArgumentException("QUIT kræver formatet QUIT||");
+               }
+               return fromQuit();
+
+           default:
+               throw new IllegalArgumentException("Ukendt meddelelsestype: " + type);
+       }
     }
 
     public String getType() {
@@ -116,6 +131,9 @@ public final class Message {
        }
        if (TYPE_JOIN_ROOM.equals(type)) {
            return type + "|" + text + "|";
+       }
+       if (TYPE_QUIT.equals(type)) {
+           return TYPE_QUIT + "||";
        }
        return type + "||" + text;
     }
