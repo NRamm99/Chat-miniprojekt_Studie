@@ -1,11 +1,14 @@
 package chat.server;
 
 import chat.adapters.DefaultMessageParser;
+import chat.application.GetRoomHistoryUseCase;
 import chat.application.JoinRoomUseCase;
 import chat.application.LoginUseCase;
 import chat.application.PrivateMessageUseCase;
+import chat.application.RecordRoomMessageUseCase;
 import chat.server.adapters.ChatRoomManagerImpl;
 import chat.server.adapters.InMemoryClientRegistry;
+import chat.server.adapters.InMemoryMessageHistory;
 import chat.server.adapters.MessageDispatcherImpl;
 
 import java.io.IOException;
@@ -29,10 +32,13 @@ public class ChatServer {
         InMemoryClientRegistry registry = new InMemoryClientRegistry();
         MessageDispatcherImpl dispatcher = new MessageDispatcherImpl(registry);
         ChatRoomManagerImpl roomManager = new ChatRoomManagerImpl();
+        InMemoryMessageHistory messageHistory = new InMemoryMessageHistory();
         DefaultMessageParser parser = new DefaultMessageParser();
         LoginUseCase loginUseCase = new LoginUseCase();
         JoinRoomUseCase joinRoomUseCase = new JoinRoomUseCase();
         PrivateMessageUseCase privateMessageUseCase = new PrivateMessageUseCase(registry, dispatcher);
+        RecordRoomMessageUseCase recordRoomMessageUseCase = new RecordRoomMessageUseCase(messageHistory);
+        GetRoomHistoryUseCase getRoomHistoryUseCase = new GetRoomHistoryUseCase(messageHistory);
 
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             ExecutorService pool = Executors.newFixedThreadPool(3);
@@ -48,7 +54,9 @@ public class ChatServer {
                             parser,
                             loginUseCase,
                             joinRoomUseCase,
-                            privateMessageUseCase));
+                            privateMessageUseCase,
+                            recordRoomMessageUseCase,
+                            getRoomHistoryUseCase));
                 }
             } finally {
                 pool.shutdown();

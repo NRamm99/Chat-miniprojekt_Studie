@@ -62,12 +62,18 @@ public class DefaultMessageParser implements MessageParser {
 
     @Override
     public String format(String type, String sender, String room, String text) {
+        return format(type, sender, room, text, LocalDateTime.now());
+    }
+
+    @Override
+    public String format(String type, String sender, String room, String text, LocalDateTime timestamp) {
         String messageType = type == null ? Message.TYPE_ERROR : type;
         String messageSender = sender == null ? "server" : sender;
         String roomValue = room == null ? "" : room;
         String payload = (text == null ? "" : text);
         String roomPart = roomValue.isBlank() ? "||" : "|" + roomValue + "|";
-        return LocalDateTime.now().format(SERVER_TIMESTAMP_FORMAT)
+        LocalDateTime time = timestamp == null ? LocalDateTime.now() : timestamp;
+        return time.format(SERVER_TIMESTAMP_FORMAT)
                 + "|" + messageType
                 + "|" + messageSender
                 + roomPart

@@ -2,6 +2,7 @@ package chat.client;
 
 import chat.adapters.DefaultMessageParser;
 import chat.adapters.MessageParser;
+import chat.client.adapters.ConsoleMessageMapper;
 import chat.domain.Message;
 
 import java.io.BufferedReader;
@@ -16,7 +17,7 @@ import java.util.logging.Logger;
 
 public class ChatClient {
     private static final Logger LOG = Logger.getLogger(ChatClient.class.getName());
-    public static final String HOST = "localhost";
+    public static final String HOST = "192.168.111.2";
     public static final int PORT = 5001;
     public static final String DEFAULT_ROOM = "lobby";
 
@@ -33,8 +34,9 @@ public class ChatClient {
             AtomicReference<CountDownLatch> loginLatchRef = new AtomicReference<>(new CountDownLatch(1));
             AtomicReference<String> currentRoomRef = new AtomicReference<>(DEFAULT_ROOM);
 
+            ConsoleMessageMapper mapper = new ConsoleMessageMapper();
             Thread receiverThread = new Thread(() -> receiveServerMessages(
-                    in, loginLatchRef, loginAccepted, currentRoomRef, serverConnectionClosed, clientClosing),
+                    in, mapper, loginLatchRef, loginAccepted, currentRoomRef, serverConnectionClosed, clientClosing),
                     "chat-client-receiver");
             receiverThread.start();
 
@@ -121,6 +123,7 @@ public class ChatClient {
     }
 
     private static void receiveServerMessages(BufferedReader in,
+                                             ConsoleMessageMapper mapper,
                                              AtomicReference<CountDownLatch> loginLatchRef,
                                              AtomicBoolean loginAccepted,
                                              AtomicReference<String> currentRoomRef,
@@ -137,8 +140,9 @@ public class ChatClient {
                     String room = parts.length > 3 ? parts[3] : "";
                     String text = parts.length == 5 ? parts[4] : "";
 
+                    System.out.println(mapper.map(timestamp, type, sender, room, text));
+
                     if (Message.TYPE_ERROR.equals(type)) {
-                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         CountDownLatch latch = loginLatchRef.get();
                         if (latch != null) {
                             latch.countDown();
@@ -148,7 +152,6 @@ public class ChatClient {
                     }
 
                     if (Message.TYPE_LOGIN.equals(type) && "server".equalsIgnoreCase(sender)) {
-                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         loginAccepted.set(true);
                         CountDownLatch latch = loginLatchRef.get();
                         if (latch != null) {
@@ -158,24 +161,12 @@ public class ChatClient {
                     }
 
                     if (Message.TYPE_JOIN_ROOM.equals(type) && "server".equalsIgnoreCase(sender)) {
-                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                         currentRoomRef.set(room);
-                        continue;
                     }
-
-                    if (Message.TYPE_PRIVATE.equals(type)) {
-                        // room is recipient; show clearly as private and show sender + text
-                        System.out.println(chat.client.adapters.ClientPresenter.presentPrivate(sender, text));
-                        continue;
-                    }
-
-                    if (Message.TYPE_TEXT.equals(type)) {
-                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
-                        continue;
-                    }
+                    continue;
                 }
 
-                System.out.println(serverLine);
+                System.out.println(mapper.mapRaw(serverLine));
             }
             if (!clientClosing.get()) {
                 LOG.warning("Forbindelsen til serveren blev lukket.");

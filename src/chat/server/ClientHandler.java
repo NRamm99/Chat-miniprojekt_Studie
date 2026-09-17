@@ -2,10 +2,13 @@ package chat.server;
 
 import chat.adapters.MessageParser;
 import chat.application.ActionResult;
+import chat.application.GetRoomHistoryUseCase;
 import chat.application.JoinRoomUseCase;
 import chat.application.LoginUseCase;
 import chat.application.PrivateMessageUseCase;
+import chat.application.RecordRoomMessageUseCase;
 import chat.domain.Message;
+import chat.domain.StoredMessage;
 import chat.server.adapters.ChatRoomManager;
 import chat.server.adapters.ClientRegistry;
 
@@ -14,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
@@ -26,6 +30,8 @@ public class ClientHandler implements Runnable {
     private final LoginUseCase loginUseCase;
     private final JoinRoomUseCase joinRoomUseCase;
     private final PrivateMessageUseCase privateMessageUseCase;
+    private final RecordRoomMessageUseCase recordRoomMessageUseCase;
+    private final GetRoomHistoryUseCase getRoomHistoryUseCase;
     private final AtomicBoolean cleanedUp = new AtomicBoolean(false);
 
     private volatile String username;
@@ -39,7 +45,9 @@ public class ClientHandler implements Runnable {
                          MessageParser parser,
                          LoginUseCase loginUseCase,
                          JoinRoomUseCase joinRoomUseCase,
-                         PrivateMessageUseCase privateMessageUseCase) {
+                         PrivateMessageUseCase privateMessageUseCase,
+                         RecordRoomMessageUseCase recordRoomMessageUseCase,
+                         GetRoomHistoryUseCase getRoomHistoryUseCase) {
         this.socket = socket;
         this.registry = registry;
         this.roomManager = roomManager;
@@ -47,6 +55,8 @@ public class ClientHandler implements Runnable {
         this.loginUseCase = loginUseCase;
         this.joinRoomUseCase = joinRoomUseCase;
         this.privateMessageUseCase = privateMessageUseCase;
+        this.recordRoomMessageUseCase = recordRoomMessageUseCase;
+        this.getRoomHistoryUseCase = getRoomHistoryUseCase;
         this.room = ChatServer.DEFAULT_ROOM;
     }
 
@@ -103,6 +113,7 @@ public class ClientHandler implements Runnable {
                 }
 
                 LOG.fine(clientAddr + " (" + username + ") -> " + message.getText() + " [" + room + "]");
+                recordRoomMessageUseCase.record(username, room, message.getText());
                 roomManager.broadcast(room, username, message.getText());
             }
         } catch (IOException e) {
@@ -131,6 +142,7 @@ public class ClientHandler implements Runnable {
         this.username = result.getValue();
         LOG.info(socket.getRemoteSocketAddress() + " registered username: " + username + " in room " + room);
         sendServerMessage(Message.TYPE_LOGIN, "server", null, "Brugernavnet er accepteret: " + username);
+        sendRoomHistory(this.room);
     }
 
     private void handleJoinRoom(String targetRoom) {
@@ -158,9 +170,14 @@ public class ClientHandler implements Runnable {
         this.room = result.getValue();
         LOG.info(socket.getRemoteSocketAddress() + " (" + username + ") switched to room: " + room);
         sendServerMessage(Message.TYPE_JOIN_ROOM, "server", room, "Du er nu i rum " + room);
+        sendRoomHistory(this.room);
     }
 
     public void deliverServerMessage(String type, String sender, String room, String text) {
+        deliverServerMessage(type, sender, room, text, null);
+    }
+
+    public void deliverServerMessage(String type, String sender, String room, String text, LocalDateTime timestamp) {
        PrintWriter writer = out;
        if (writer == null || cleanedUp.get()) {
            return;
@@ -169,12 +186,18 @@ public class ClientHandler implements Runnable {
            if (cleanedUp.get()) {
                return;
            }
-           writer.println(parser.format(type, sender, room, text));
+           writer.println(parser.format(type, sender, room, text, timestamp));
            writer.flush();
            if (writer.checkError()) {
                closeConnection();
            }
        }
+    }
+
+    private void sendRoomHistory(String roomName) {
+        for (StoredMessage stored : getRoomHistoryUseCase.recent(roomName)) {
+            deliverServerMessage(Message.TYPE_TEXT, stored.getSender(), stored.getRoom(), stored.getText(), stored.getTimestamp());
+        }
     }
 
     private void sendServerMessage(String type, String sender, String room, String text) {

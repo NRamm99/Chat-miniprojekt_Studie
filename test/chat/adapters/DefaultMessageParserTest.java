@@ -3,6 +3,8 @@ package chat.adapters;
 import chat.domain.Message;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -81,5 +83,9 @@ class DefaultMessageParserTest {
 
         String emptyRoom = parser.format("LOGIN", "server", null, "ok");
         assertTrue(emptyRoom.contains("|LOGIN|server||ok"));
+
+        LocalDateTime timestamp = LocalDateTime.of(2026, 9, 17, 22, 41, 5);
+        assertEquals("2026-09-17 22:41:05|TEXT|Alice|lobby|Hej|der",
+                parser.format("TEXT", "Alice", "lobby", "Hej|der", timestamp));
     }
 }
