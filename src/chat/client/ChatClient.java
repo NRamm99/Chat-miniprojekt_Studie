@@ -142,10 +142,9 @@ public class ChatClient {
                    }
 n                   if (Message.TYPE_PRIVATE.equals(type)) {
                        // room is recipient; show clearly as private and show sender + text
-                       System.out.println("[PRIVATE] " + sender + ": " + text);
+                       System.out.println(chat.client.adapters.ClientPresenter.presentPrivate(sender, text));
                        continue;
-                   }
-n                   if (Message.TYPE_TEXT.equals(type)) {
+                   }n                   if (Message.TYPE_TEXT.equals(type)) {
                        System.out.println(timestamp + "|" + type + "|" + sender + "|" + room + "|" + text);
                        continue;
                    }

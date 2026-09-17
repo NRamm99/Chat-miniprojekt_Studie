@@ -184,12 +184,12 @@ public class ClientHandler implements Runnable {
 
        for (ClientHandler client : roomMembers) {
            if (client != null) {
-               client.sendServerMessage(Message.TYPE_TEXT, username, roomToSend, text);
+               client.deliverServerMessage("TEXT", username, roomToSend, text);
            }
        }
     }
 
-    private void sendServerMessage(String type, String sender, String room, String text) {
+    public void deliverServerMessage(String type, String sender, String room, String text) {
        if (out == null) {
            return;
        }
@@ -199,21 +199,17 @@ public class ClientHandler implements Runnable {
     }
 
     private void handlePrivateMessage(Message message) {
+        // Use application/service-style logic via PrivateMessageUseCase
         if (username == null) {
-            sendServerMessage(Message.TYPE_ERROR, "server", null, "Du skal være logget ind for at sende private beskeder");
+            deliverServerMessage(Message.TYPE_ERROR, "server", "", "Du skal være logget ind for at sende private beskeder");
             return;
         }
         String recipient = message.getRoom();
-        if (recipient == null || recipient.isBlank()) {
-            sendServerMessage(Message.TYPE_ERROR, "server", null, "Ugyldigt brugernavn for privat besked");
-            return;
-        }
-        ClientHandler target = registeredUsers.get(recipient);
-        if (target == null) {
-            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugeren findes ikke: " + recipient);
-            return;
-        }
-        // send private message only to recipient
-        target.sendServerMessage(Message.TYPE_PRIVATE, username, recipient, message.getText());
+        // create lightweight adapters on-the-fly backed by existing maps
+        chat.server.adapters.InMemoryClientRegistry registry = new chat.server.adapters.InMemoryClientRegistry(this.registeredUsers);
+        chat.server.adapters.MessageDispatcherImpl dispatcher = new chat.server.adapters.MessageDispatcherImpl(registry);
+        chat.application.PrivateMessageUseCase useCase = new chat.application.PrivateMessageUseCase(registry, dispatcher);
+        useCase.send(this.username, recipient, message.getText());
     }
 
+}
