@@ -123,6 +123,12 @@ public class ClientHandler implements Runnable {
             return;
         }
 
+        // Reject usernames containing the protocol separator '|' to avoid breaking message field parsing later.
+        if (normalizedUsername.indexOf('|') >= 0) {
+            sendServerMessage(Message.TYPE_ERROR, "server", null, "Ugyldigt brugernavn: indeholder forbudt tegn '|' ");
+            return;
+        }
+
         if (!registry.register(normalizedUsername, this)) {
            sendServerMessage(Message.TYPE_ERROR, "server", null, "Brugernavnet er optaget");
             return;
