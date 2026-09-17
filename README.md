@@ -129,11 +129,11 @@ Fejlformaterede beskeder afvises med `ERROR`, og forbindelsen holdes åben, så 
 
 ### Fuldt klassediagram
 
-<img width="8192" height="5616" alt="Chat Application Message-2026-09-17-202650" src="https://github.com/user-attachments/assets/efa6c7a2-f236-4572-bf34-72c015b758aa" />
+<img width="8192" height="5470" alt="Chat Application Message-2026-09-17-194844" src="https://github.com/user-attachments/assets/1cc770a0-dff6-4d77-89bf-9e6c91c085de" />
 
 ### Sekvensdiagram — optaget brugernavn
 
-<img width="8192" height="5616" alt="Chat Application Message-2026-09-17-202650" src="https://github.com/user-attachments/assets/3d4f2570-d754-4131-8890-3ecf5eca6418" />
+<img width="7252" height="5720" alt="Chat Application Message-2026-09-17-194943" src="https://github.com/user-attachments/assets/8d938d2a-3298-42e5-a40a-d8a7d47be114" />
 
 ## Trådmodel og delte ressourcer
 
