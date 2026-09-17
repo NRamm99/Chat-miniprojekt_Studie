@@ -11,8 +11,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.logging.Logger;
 
 public class ClientHandler implements Runnable {
+    private static final Logger LOG = Logger.getLogger(ClientHandler.class.getName());
     private final Socket socket;
     private final ClientRegistry registry;
     private final MessageDispatcher dispatcher;
@@ -77,11 +79,11 @@ public class ClientHandler implements Runnable {
                    continue;
                 }
 
-                System.out.println(clientAddr + " (" + username + ") -> " + message.getText() + " [" + room + "]");
+                LOG.fine(clientAddr + " (" + username + ") -> " + message.getText() + " [" + room + "]");
                 roomManager.broadcast(room, username, message.getText());
             }
         } catch (IOException e) {
-            System.err.println("Connection error with " + clientAddr + ": " + e.getMessage());
+            LOG.warning("Connection error with " + clientAddr + ": " + e.getMessage());
         } finally {
             unregisterUsername();
             if (room != null) {
@@ -92,7 +94,7 @@ public class ClientHandler implements Runnable {
                 socket.close();
             } catch (IOException ignore) {
             }
-            System.out.println("Connection closed: " + clientAddr);
+            LOG.info("Connection closed: " + clientAddr);
         }
     }
 
@@ -120,7 +122,7 @@ public class ClientHandler implements Runnable {
         this.username = normalizedUsername;
         roomManager.joinRoom(ChatServer.DEFAULT_ROOM, this);
 
-        System.out.println(socket.getRemoteSocketAddress() + " registered username: " + username + " in room " + room);
+        LOG.info(socket.getRemoteSocketAddress() + " registered username: " + username + " in room " + room);
         sendServerMessage(Message.TYPE_LOGIN, "server", null, "Brugernavnet er accepteret: " + username);
     }
 
@@ -163,7 +165,7 @@ public class ClientHandler implements Runnable {
         room = targetRoom;
         roomManager.joinRoom(room, this);
 
-        System.out.println(socket.getRemoteSocketAddress() + " (" + username + ") switched to room: " + room);
+        LOG.info(socket.getRemoteSocketAddress() + " (" + username + ") switched to room: " + room);
         sendServerMessage(Message.TYPE_JOIN_ROOM, "server", room, "Du er nu i rum " + room);
     }
 
