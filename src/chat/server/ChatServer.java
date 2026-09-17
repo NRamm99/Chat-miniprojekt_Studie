@@ -19,12 +19,12 @@ public class ChatServer {
     public static final int DEFAULT_PORT = 5001;
     public static final String DEFAULT_ROOM = "lobby";
     public static final String SECOND_ROOM = "room67";
-    public static final ConcurrentMap<String, ClientHandler> REGISTERED_USERS = new ConcurrentHashMap<>();
-    public static final ConcurrentMap<String, Set<ClientHandler>> ROOMS = new ConcurrentHashMap<>();
+    public static final ConcurrentMap<String, ClientHandler> REGISTERED_USERS = new ConcurrentHashMap<String, ClientHandler>();
+    public static final ConcurrentMap<String, Set<ClientHandler>> ROOMS = new ConcurrentHashMap<String, Set<ClientHandler>>();
 
     static {
-        ROOMS.put(DEFAULT_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<>()));
-        ROOMS.put(SECOND_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<>()));
+        ROOMS.put(DEFAULT_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<ClientHandler, Boolean>()));
+        ROOMS.put(SECOND_ROOM, Collections.newSetFromMap(new ConcurrentHashMap<ClientHandler, Boolean>()));
     }
 
     public static void main(String[] args) {
