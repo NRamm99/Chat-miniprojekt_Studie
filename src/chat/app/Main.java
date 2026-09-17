@@ -2,16 +2,18 @@ package chat.app;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.logging.Logger;
 
 public final class Main {
+    private static final Logger LOG = Logger.getLogger(Main.class.getName());
     private Main() {
     }
 
     public static void main(String[] args) {
         if (args.length == 0) {
-            System.out.println("Usage:");
-            System.out.println("  java -cp out chat.server.ChatServer");
-            System.out.println("  java -cp out chat.client.ChatClient");
+            LOG.info("Usage:");
+            LOG.info("  java -cp out chat.server.ChatServer");
+            LOG.info("  java -cp out chat.client.ChatClient");
             return;
         }
 
@@ -26,10 +28,10 @@ public final class Main {
                 chat.client.ChatClient.main(remainingArgs);
                 break;
             default:
-                System.err.println("Unknown mode: " + mode);
-                System.out.println("Usage:");
-                System.out.println("  java -cp out chat.server.ChatServer");
-                System.out.println("  java -cp out chat.client.ChatClient");
+                LOG.warning("Unknown mode: " + mode);
+                LOG.info("Usage:");
+                LOG.info("  java -cp out chat.server.ChatServer");
+                LOG.info("  java -cp out chat.client.ChatClient");
                 break;
         }
     }
